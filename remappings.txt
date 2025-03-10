@@ -1,1 +1,3 @@
-forge-std/=lib/forge-std/src/
+forge-std/=lib/ks-growth-utils-sc/lib/forge-std/src/
+ks-growth-utils-sc/=lib/ks-growth-utils-sc/contracts/
+openzeppelin-contracts/=lib/ks-growth-utils-sc/lib/openzeppelin-contracts/contracts/
