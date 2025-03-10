@@ -1,6 +1,16 @@
 [profile.default]
-src = "src"
-out = "out"
-libs = ["lib"]
+optimizer = true
+optimizer_runs = 44444444
+via_ir = true
+ffi = true
+solc = '0.8.28'
+fs_permissions = [{ access = 'read', path = './'}]
+
+[fmt]
+line_length = 100
+tab_width = 2
+quote_style = 'single'
+number_underscore = 'thousands'
+sort_imports = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
