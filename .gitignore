@@ -18,3 +18,7 @@ docs/
 
 # Logs
 log
+
+# Certora
+.certora_internal/
+emv-*/

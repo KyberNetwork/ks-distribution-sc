@@ -1,12 +1,9 @@
-name: CI
+name: foundry
 
 on:
   push:
   pull_request:
   workflow_dispatch:
-
-env:
-  FOUNDRY_PROFILE: ci
 
 jobs:
   check:

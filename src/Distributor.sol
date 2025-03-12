@@ -61,7 +61,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     onlyBefore(startTimestamp)
     returns (bytes32 campaignId)
   {
-    campaignId = keccak256(abi.encodePacked(startTimestamp, endTimestamp, metadata));
+    campaignId = keccak256(abi.encode(startTimestamp, endTimestamp, metadata));
     require(campaigns[campaignId].startTimestamp == 0, CampaignAlreadyExists(campaignId));
     campaigns[campaignId] = Campaign(startTimestamp, endTimestamp, metadata);
 
@@ -90,7 +90,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     view
     returns (uint256)
   {
-    bytes32 infoHash = keccak256(abi.encodePacked(campaignId, account));
+    bytes32 infoHash = keccak256(abi.encode(campaignId, account));
     return claimed[infoHash][token];
   }
 
@@ -101,7 +101,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     uint256 erc721Id,
     address token
   ) external view returns (uint256) {
-    bytes32 infoHash = keccak256(abi.encodePacked(campaignId, erc721Addr, erc721Id));
+    bytes32 infoHash = keccak256(abi.encode(campaignId, erc721Addr, erc721Id));
     return claimed[infoHash][token];
   }
 
@@ -119,10 +119,10 @@ contract Distributor is IDistributor, KSRescueV2 {
   {
     require(tokens.length == amounts.length, InvalidLengths());
 
-    bytes32 infoHash = keccak256(abi.encodePacked(campaignId, _msgSender()));
+    bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
     require(
       MerkleProof.verifyCalldata(
-        proof, roots[campaignId], keccak256(abi.encodePacked(infoHash, tokens, amounts))
+        proof, roots[campaignId], keccak256(abi.encode(infoHash, tokens, amounts))
       ),
       InvalidProof()
     );
@@ -147,19 +147,19 @@ contract Distributor is IDistributor, KSRescueV2 {
   {
     require(tokens.length == amounts.length, InvalidLengths());
 
+    address msgSender = _msgSender();
     IERC721 nft = IERC721(erc721Addr);
     address nftOwner = nft.ownerOf(erc721Id);
-    address msgSender = _msgSender();
     require(
       nftOwner == msgSender || nft.getApproved(erc721Id) == msgSender
         || nft.isApprovedForAll(nftOwner, msgSender),
       UnauthorizedClaimant(msgSender)
     );
 
-    bytes32 infoHash = keccak256(abi.encodePacked(campaignId, erc721Addr, erc721Id));
+    bytes32 infoHash = keccak256(abi.encode(campaignId, erc721Addr, erc721Id));
     require(
       MerkleProof.verifyCalldata(
-        proof, roots[campaignId], keccak256(abi.encodePacked(infoHash, tokens, amounts))
+        proof, roots[campaignId], keccak256(abi.encode(infoHash, tokens, amounts))
       ),
       InvalidProof()
     );

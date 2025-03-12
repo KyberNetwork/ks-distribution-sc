@@ -3,14 +3,22 @@ pragma solidity ^0.8.0;
 
 import 'src/Distributor.sol';
 
+import {ERC721Mock} from './mocks/ERC721Mock.sol';
 import './utils/MerkleUtils.sol';
 
-import {ERC721Mock} from './mocks/ERC721Mock.sol';
 import 'forge-std/Test.sol';
 import {ERC20Mock} from 'openzeppelin-contracts/mocks/token/ERC20Mock.sol';
 
 contract DistributorTest is Test {
   using MerkleUtils for bytes32[];
+
+  enum RevertType {
+    ANY_REASON,
+    INVALID_PROOF,
+    TOO_EARLY,
+    TOO_LATE,
+    INVALID_LENGTHS
+  }
 
   uint256 public constant MAX_CAMPAIGN_SIZE = 20;
   uint256 public constant MAX_TIME_DURATION = 2 hours;
@@ -188,7 +196,7 @@ contract DistributorTest is Test {
     _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0);
     vm.warp(campaign.startTimestamp + 10);
     (leaves,) = _setUpRewards(campaignId, amountSeed / 2, size, nft0);
-    _claimAndVerifyRewards(campaignId, amountSeed / 2, leaves, nft0, 1);
+    _claimRewardsWithRevert(campaignId, amountSeed / 2, leaves, nft0, RevertType.ANY_REASON);
   }
 
   function testClaimWithInvalidProofShouldRevert() public {
@@ -197,7 +205,34 @@ contract DistributorTest is Test {
     (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
-    _claimAndVerifyRewards(campaignId, seed, leaves, nft0, 2);
+    _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.INVALID_PROOF);
+  }
+
+  function testClaimTooEarlyShouldRevert() public {
+    uint256 seed = 1e18;
+    uint256 size = 10;
+    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
+    vm.warp(campaign.startTimestamp - 1);
+    _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.TOO_EARLY);
+  }
+
+  function testClaimTooLateShouldRevert() public {
+    uint256 seed = 1e18;
+    uint256 size = 10;
+    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
+    vm.warp(campaign.endTimestamp + 1);
+    _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.TOO_LATE);
+  }
+
+  function testClaimWithInvalidLengthsShouldRevert() public {
+    uint256 seed = 1e18;
+    uint256 size = 10;
+    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
+    vm.warp(campaign.startTimestamp + 1);
+    _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.INVALID_LENGTHS);
   }
 
   function _setUpDistributor() internal {
@@ -232,7 +267,7 @@ contract DistributorTest is Test {
     campaign.startTimestamp =
       tooLate ? block.timestamp - 100 : block.timestamp + bound(seed, 100, MAX_TIME_DURATION);
     campaign.endTimestamp = campaign.startTimestamp + bound(seed, 100, MAX_TIME_DURATION);
-    campaign.metadata = abi.encodePacked(seed);
+    campaign.metadata = abi.encode(seed);
     vm.prank(caller);
     campaignId =
       distributor.createCampaign(campaign.startTimestamp, campaign.endTimestamp, campaign.metadata);
@@ -257,15 +292,15 @@ contract DistributorTest is Test {
       bytes32 infoHash;
       address account = vm.addr(i + 1);
       if (i & 1 == 0) {
-        infoHash = keccak256(abi.encodePacked(campaignId, account));
+        infoHash = keccak256(abi.encode(campaignId, account));
       } else {
         uint256 erc721Id = _getErc721Id(campaignId, i);
-        infoHash = keccak256(abi.encodePacked(campaignId, nft, erc721Id));
+        infoHash = keccak256(abi.encode(campaignId, nft, erc721Id));
         try nft.mint(account, erc721Id) {} catch {}
       }
 
       (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed, i);
-      leaves[i] = keccak256(abi.encodePacked(infoHash, tokens, amounts));
+      leaves[i] = keccak256(abi.encode(infoHash, tokens, amounts));
     }
 
     root = leaves.getRoot();
@@ -282,14 +317,15 @@ contract DistributorTest is Test {
     return _setUpRewards(campaignId, amountSeed, size, nft, true);
   }
 
-  function _claimAndVerifyRewards(
+  function _claimRewardsWithRevert(
     bytes32 campaignId,
     uint256 amountSeed,
     bytes32[] memory leaves,
     ERC721Mock nft,
-    uint256 shouldRevert
+    RevertType revertType
   ) internal {
     uint256 size = leaves.length;
+
     for (uint256 i = 0; i < size; i++) {
       address account = vm.addr(i + 1);
       address recipient = vm.addr(i * i + 1);
@@ -297,16 +333,83 @@ contract DistributorTest is Test {
 
       bytes32[] memory proof = leaves.getProof(i);
       if (i & 1 == 0) {
-        if (shouldRevert == 1) {
+        if (revertType == RevertType.ANY_REASON) {
           vm.expectRevert();
           distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
           continue;
-        } else if (shouldRevert == 2) {
+        } else if (revertType == RevertType.INVALID_PROOF) {
           proof = new bytes32[](proof.length);
           vm.expectRevert(IDistributor.InvalidProof.selector);
           distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
           continue;
+        } else if (revertType == RevertType.INVALID_LENGTHS) {
+          vm.expectRevert(IDistributor.InvalidLengths.selector);
+          distributor.claimRewardsForAccount(campaignId, tokens, new uint256[](3), proof, recipient);
+          continue;
+        } else {
+          vm.expectRevert(
+            revertType == RevertType.TOO_EARLY
+              ? IDistributor.TooEarly.selector
+              : IDistributor.TooLate.selector
+          );
+          distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+          continue;
         }
+      } else {
+        uint256 erc721Id = _getErc721Id(campaignId, i);
+        if (revertType == RevertType.ANY_REASON) {
+          vm.expectRevert();
+          vm.prank(account);
+          distributor.claimRewardsForERC721(
+            campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient
+          );
+          continue;
+        } else if (revertType == RevertType.INVALID_PROOF) {
+          proof = new bytes32[](proof.length);
+          vm.expectRevert(IDistributor.InvalidProof.selector);
+          vm.prank(account);
+          distributor.claimRewardsForERC721(
+            campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient
+          );
+          continue;
+        } else if (revertType == RevertType.INVALID_LENGTHS) {
+          vm.expectRevert(IDistributor.InvalidLengths.selector);
+          vm.prank(account);
+          distributor.claimRewardsForERC721(
+            campaignId, address(nft), erc721Id, tokens, new uint256[](3), proof, recipient
+          );
+          continue;
+        } else {
+          vm.expectRevert(
+            revertType == RevertType.TOO_EARLY
+              ? IDistributor.TooEarly.selector
+              : IDistributor.TooLate.selector
+          );
+          vm.prank(account);
+          distributor.claimRewardsForERC721(
+            campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient
+          );
+          continue;
+        }
+      }
+    }
+  }
+
+  function _claimAndVerifyRewards(
+    bytes32 campaignId,
+    uint256 amountSeed,
+    bytes32[] memory leaves,
+    ERC721Mock nft
+  ) internal {
+    uint256 size = leaves.length;
+
+    for (uint256 i = 0; i < size; i++) {
+      address account = vm.addr(i + 1);
+      address recipient = vm.addr(i * i + 1);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed, i);
+
+      bytes32[] memory proof = leaves.getProof(i);
+      if (i & 1 == 0) {
         uint256[] memory claimable =
           _verifyClaimedAmountsForAccount(campaignId, account, tokens, amounts, recipient);
         vm.prank(account);
@@ -318,22 +421,6 @@ contract DistributorTest is Test {
         _verifyClaimedAmountsForAccount(campaignId, account, tokens, amounts, recipient);
       } else {
         uint256 erc721Id = _getErc721Id(campaignId, i);
-        if (shouldRevert == 1) {
-          vm.expectRevert();
-          vm.prank(account);
-          distributor.claimRewardsForERC721(
-            campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient
-          );
-          continue;
-        } else if (shouldRevert == 2) {
-          proof = new bytes32[](proof.length);
-          vm.expectRevert(IDistributor.InvalidProof.selector);
-          vm.prank(account);
-          distributor.claimRewardsForERC721(
-            campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient
-          );
-          continue;
-        }
         uint256[] memory claimable = _verifyClaimedAmountsForERC721(
           campaignId, address(nft), erc721Id, tokens, amounts, recipient
         );
@@ -356,17 +443,8 @@ contract DistributorTest is Test {
     }
   }
 
-  function _claimAndVerifyRewards(
-    bytes32 campaignId,
-    uint256 amountSeed,
-    bytes32[] memory leaves,
-    ERC721Mock nft
-  ) internal {
-    _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft, 0);
-  }
-
   function _getErc721Id(bytes32 campaignId, uint256 i) internal pure returns (uint256) {
-    return uint256(keccak256(abi.encodePacked(campaignId, i)));
+    return uint256(keccak256(abi.encode(campaignId, i)));
   }
 
   function _getTokensAndAmounts(uint256 amountSSeeed, uint256 i)
