@@ -14,7 +14,11 @@ interface IDistributor {
 
   /// @notice Emitted when rewards are claimed for an account
   event RewardsClaimedForAccount(
-    bytes32 indexed campaignId, address indexed account, address[] tokens, uint256[] amounts
+    bytes32 indexed campaignId,
+    address indexed account,
+    address[] tokens,
+    uint256[] amounts,
+    address recipient
   );
 
   /// @notice Emitted when rewards are claimed for an ERC721 token
@@ -22,11 +26,13 @@ interface IDistributor {
     bytes32 indexed campaignId,
     address indexed erc721Addr,
     uint256 indexed erc721Id,
+    address claimant,
     address[] tokens,
-    uint256[] amounts
+    uint256[] amounts,
+    address recipient
   );
 
-  /// @notice Thrown when a campaign with the same `campaignId` already exists
+  /// @notice Thrown when a campaign already exists
   error CampaignAlreadyExists(bytes32 campaignId);
 
   /// @notice Thrown when the campaign has not started yet
@@ -40,6 +46,9 @@ interface IDistributor {
 
   /// @notice Thrown when the proof is invalid
   error InvalidProof();
+
+  /// @notice Thrown when the claimant is unauthorized
+  error UnauthorizedClaimant(address claimant);
 
   struct Campaign {
     uint256 startTimestamp;
@@ -68,10 +77,10 @@ interface IDistributor {
   /**
    * @notice Returns the claimed amount for an account in a campaign
    * @param campaignId the unique id of the campaign
-   * @param token the address of the reward token
    * @param account the address of the account
+   * @param token the address of the reward token
    */
-  function getClaimedAmountForAccount(bytes32 campaignId, address token, address account)
+  function getClaimedAmountForAccount(bytes32 campaignId, address account, address token)
     external
     view
     returns (uint256);
@@ -79,15 +88,15 @@ interface IDistributor {
   /**
    * @notice Returns the claimed amount for an ERC721 token in a campaign
    * @param campaignId the unique id of the campaign
-   * @param token the address of the reward token
    * @param erc721Addr the address of the ERC721 contract
    * @param erc721Id the campaignId of the ERC721 token
+   * @param token the address of the reward token
    */
   function getClaimedAmountForERC721(
     bytes32 campaignId,
-    address token,
     address erc721Addr,
-    uint256 erc721Id
+    uint256 erc721Id,
+    address token
   ) external view returns (uint256);
 
   /**
@@ -109,20 +118,20 @@ interface IDistributor {
   /**
    * @notice Claims rewards for an ERC721 token in a campaign
    * @param campaignId the unique id of the campaign
+   * @param erc721Addr the address of the ERC721 contract
+   * @param erc721Id the campaignId of the ERC721 token
    * @param tokens the addresses of the reward tokens
    * @param amounts the cumulative amounts of rewards
    * @param proof the Merkle proof
-   * @param erc721Addr the address of the ERC721 contract
-   * @param erc721Id the campaignId of the ERC721 token
    * @param recipient the address of the recipient
    */
   function claimRewardsForERC721(
     bytes32 campaignId,
+    address erc721Addr,
+    uint256 erc721Id,
     address[] calldata tokens,
     uint256[] calldata amounts,
     bytes32[] calldata proof,
-    address erc721Addr,
-    uint256 erc721Id,
     address recipient
   ) external;
 }
