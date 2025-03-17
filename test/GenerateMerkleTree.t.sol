@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import 'src/Distributor.sol';
+import 'src/KSDistributor.sol';
 
 import {ERC721Mock} from './mocks/ERC721Mock.sol';
 
@@ -12,7 +12,7 @@ import {ERC20Mock} from 'openzeppelin-contracts/mocks/token/ERC20Mock.sol';
 contract GenerateMerkleTreeTest is Test {
   using stdJson for string;
 
-  Distributor public distributor;
+  KSDistributor public distributor;
 
   ERC20Mock public token;
   ERC721Mock public nft;
@@ -23,12 +23,12 @@ contract GenerateMerkleTreeTest is Test {
 
   function setUp() public {
     vm.warp(1e18);
-    _setUpDistributor();
+    _setUpKSDistributor();
     _setUpTokens();
   }
 
   function testGenerateMerkleTree() public {
-    IDistributor.Campaign memory campaign = IDistributor.Campaign({
+    IKSDistributor.Campaign memory campaign = IKSDistributor.Campaign({
       startTimestamp: block.timestamp + 100,
       endTimestamp: block.timestamp + 2 hours,
       metadata: ''
@@ -91,11 +91,11 @@ contract GenerateMerkleTreeTest is Test {
     );
   }
 
-  function _setUpDistributor() internal {
+  function _setUpKSDistributor() internal {
     address[] memory initialOperators = new address[](1);
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
-    distributor = new Distributor(owner, initialOperators, initialGuardians);
+    distributor = new KSDistributor(owner, initialOperators, initialGuardians);
   }
 }

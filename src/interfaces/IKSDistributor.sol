@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IERC20} from 'openzeppelin-contracts/token/ERC20/IERC20.sol';
 
-interface IDistributor {
+interface IKSDistributor {
   /// @notice Emitted when a new campaign is created
   event CampaignCreated(
     bytes32 indexed campaignId, uint256 startTimestamp, uint256 endTimestamp, bytes metadata

@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import './interfaces/IDistributor.sol';
+import './interfaces/IKSDistributor.sol';
 
 import 'ks-growth-utils-sc/KSRescueV2.sol';
 import 'openzeppelin-contracts/utils/cryptography/MerkleProof.sol';
 
-contract Distributor is IDistributor, KSRescueV2 {
+contract KSDistributor is IKSDistributor, KSRescueV2 {
   using SafeERC20 for IERC20;
 
   uint256 public constant MIN_CAMPAIGN_DURATION = 1 hours;
 
-  /// @inheritdoc IDistributor
+  /// @inheritdoc IKSDistributor
   mapping(bytes32 campaignId => Campaign) public campaigns;
 
-  /// @inheritdoc IDistributor
+  /// @inheritdoc IKSDistributor
   mapping(bytes32 campaignId => bytes32) public roots;
 
   /// @notice The claimed amount for each `infoHash` in each campaign
@@ -87,7 +87,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     emit RootUpdated(campaignId, oldRoot, newRoot);
   }
 
-  /// @inheritdoc IDistributor
+  /// @inheritdoc IKSDistributor
   function getClaimedAmountForAccount(bytes32 campaignId, address account, address token)
     public
     view
@@ -97,7 +97,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     return claimed[infoHash][token];
   }
 
-  /// @inheritdoc IDistributor
+  /// @inheritdoc IKSDistributor
   function getClaimedAmountForERC721(
     bytes32 campaignId,
     address erc721Addr,
@@ -108,7 +108,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     return claimed[infoHash][token];
   }
 
-  /// @inheritdoc IDistributor
+  /// @inheritdoc IKSDistributor
   function claimRewardsForAccount(
     bytes32 campaignId,
     address[] calldata tokens,
@@ -136,7 +136,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     emit RewardsClaimedForAccount(campaignId, _msgSender(), tokens, claimedAmounts, recipient);
   }
 
-  /// @inheritdoc IDistributor
+  /// @inheritdoc IKSDistributor
   function claimRewardsForERC721(
     bytes32 campaignId,
     address erc721Addr,
@@ -179,7 +179,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     );
   }
 
-  /// @inheritdoc IDistributor
+  /// @inheritdoc IKSDistributor
   function batchClaimRewards(bytes[] calldata datas) public {
     for (uint256 i = 0; i < datas.length; i++) {
       bytes4 selector = bytes4(datas[i][:4]);

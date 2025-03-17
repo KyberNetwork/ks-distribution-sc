@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import 'src/Distributor.sol';
+import 'src/KSDistributor.sol';
 
 import {ERC721Mock} from './mocks/ERC721Mock.sol';
 import './utils/MerkleUtils.sol';
@@ -9,7 +9,7 @@ import './utils/MerkleUtils.sol';
 import 'forge-std/Test.sol';
 import {ERC20Mock} from 'openzeppelin-contracts/mocks/token/ERC20Mock.sol';
 
-contract DistributorTest is Test {
+contract KSDistributorTest is Test {
   using MerkleUtils for bytes32[];
 
   enum RevertType {
@@ -23,7 +23,7 @@ contract DistributorTest is Test {
   uint256 public constant MAX_CAMPAIGN_SIZE = 20;
   uint256 public constant MAX_TIME_DURATION = 1 days;
 
-  Distributor public distributor;
+  KSDistributor public distributor;
 
   ERC20Mock public token0;
   ERC20Mock public token1;
@@ -37,7 +37,7 @@ contract DistributorTest is Test {
 
   function setUp() public {
     vm.warp(1e18);
-    _setUpDistributor();
+    _setUpKSDistributor();
     _setUpTokens();
     _setUpLabels();
   }
@@ -52,7 +52,7 @@ contract DistributorTest is Test {
   }
 
   function testCreateCampaignTooLateShouldRevert() public {
-    vm.expectRevert(IDistributor.TooLate.selector);
+    vm.expectRevert(IKSDistributor.TooLate.selector);
     uint256 startTimestamp = block.timestamp - 100;
     uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
     bytes memory metadata = abi.encode(0);
@@ -61,7 +61,7 @@ contract DistributorTest is Test {
   }
 
   function testCreateCampaignWithTooShortDurationShouldRevert() public {
-    vm.expectRevert(IDistributor.TooShortDuration.selector);
+    vm.expectRevert(IKSDistributor.TooShortDuration.selector);
     uint256 startTimestamp = block.timestamp + bound(0, 100, MAX_TIME_DURATION);
     uint256 endTimestamp = startTimestamp + 0.5 hours;
     bytes memory metadata = abi.encode(0);
@@ -71,7 +71,7 @@ contract DistributorTest is Test {
 
   function testCreateCampaignShouldEmitsEvent() public {
     vm.expectEmit(false, false, false, false, address(distributor));
-    emit IDistributor.CampaignCreated(0, 0, 0, '');
+    emit IKSDistributor.CampaignCreated(0, 0, 0, '');
     _createCampaign(100);
   }
 
@@ -89,8 +89,8 @@ contract DistributorTest is Test {
   }
 
   function testUpdateRootTooLateShouldRevert() public {
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(100);
-    vm.expectRevert(IDistributor.TooLate.selector);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(100);
+    vm.expectRevert(IKSDistributor.TooLate.selector);
     vm.warp(campaign.endTimestamp + 1);
     vm.prank(operator);
     distributor.updateRoot(campaignId, 0);
@@ -101,19 +101,19 @@ contract DistributorTest is Test {
     vm.startPrank(operator);
     (, bytes32 root) = _setUpRewards(campaignId, 1000 ether, 10, nft0, false);
     vm.expectEmit(address(distributor));
-    emit IDistributor.RootUpdated(campaignId, 0, root);
+    emit IKSDistributor.RootUpdated(campaignId, 0, root);
     distributor.updateRoot(campaignId, root);
 
     (, bytes32 newRoot) = _setUpRewards(campaignId, 2000 ether, 10, nft0, false);
     vm.expectEmit(address(distributor));
-    emit IDistributor.RootUpdated(campaignId, root, newRoot);
+    emit IKSDistributor.RootUpdated(campaignId, root, newRoot);
     distributor.updateRoot(campaignId, newRoot);
   }
 
   function testClaimShouldFollowTheMerkleDistribution(uint256 seed, uint256 size) public {
     size = bound(size, 1, MAX_CAMPAIGN_SIZE);
     uint256 amountSeed = bound(seed, 100, type(uint112).max);
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
     _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0);
@@ -125,7 +125,7 @@ contract DistributorTest is Test {
   function testApprovedOperatorCanClaimRewardsForERC721() public {
     uint256 seed = 1e18;
     uint256 size = 10;
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
 
@@ -143,7 +143,7 @@ contract DistributorTest is Test {
     nft0.approve(operator, erc721Id);
     vm.prank(operator);
     vm.expectEmit(address(distributor));
-    emit IDistributor.RewardsClaimedForERC721(
+    emit IKSDistributor.RewardsClaimedForERC721(
       campaignId, address(nft0), erc721Id, operator, tokens, claimable, recipient
     );
     distributor.claimRewardsForERC721(
@@ -155,7 +155,7 @@ contract DistributorTest is Test {
   function testApprovedForAllOperatorCanClaimRewardsForERC721() public {
     uint256 seed = 1e18;
     uint256 size = 10;
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
 
@@ -173,7 +173,7 @@ contract DistributorTest is Test {
     nft0.setApprovalForAll(operator, true);
     vm.prank(operator);
     vm.expectEmit(address(distributor));
-    emit IDistributor.RewardsClaimedForERC721(
+    emit IKSDistributor.RewardsClaimedForERC721(
       campaignId, address(nft0), erc721Id, operator, tokens, claimable, recipient
     );
     distributor.claimRewardsForERC721(
@@ -185,7 +185,7 @@ contract DistributorTest is Test {
   function testOnlyAuthorizedAccountCanClaimRewardsForERC721() public {
     uint256 seed = 1e18;
     uint256 size = 10;
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
 
@@ -196,7 +196,7 @@ contract DistributorTest is Test {
     bytes32[] memory proof = leaves.getProof(i);
     uint256 erc721Id = _getErc721Id(campaignId, i);
     vm.expectRevert(
-      abi.encodeWithSelector(IDistributor.UnauthorizedClaimant.selector, randomCaller)
+      abi.encodeWithSelector(IKSDistributor.UnauthorizedClaimant.selector, randomCaller)
     );
     vm.prank(randomCaller);
     distributor.claimRewardsForERC721(
@@ -207,7 +207,7 @@ contract DistributorTest is Test {
   function testClaimWithMisconfiguredRootShouldRevert(uint256 seed, uint256 size) public {
     size = bound(size, 1, MAX_CAMPAIGN_SIZE);
     uint256 amountSeed = bound(seed, 100, type(uint112).max);
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
     _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0);
@@ -219,7 +219,7 @@ contract DistributorTest is Test {
   function testClaimWithInvalidProofShouldRevert() public {
     uint256 seed = 1e18;
     uint256 size = 10;
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
     _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.INVALID_PROOF);
@@ -228,7 +228,7 @@ contract DistributorTest is Test {
   function testClaimTooEarlyShouldRevert() public {
     uint256 seed = 1e18;
     uint256 size = 10;
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
     vm.warp(campaign.startTimestamp - 1);
     _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.TOO_EARLY);
@@ -237,7 +237,7 @@ contract DistributorTest is Test {
   function testClaimTooLateShouldRevert() public {
     uint256 seed = 1e18;
     uint256 size = 10;
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
     vm.warp(campaign.endTimestamp + 1);
     _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.TOO_LATE);
@@ -246,7 +246,7 @@ contract DistributorTest is Test {
   function testClaimWithInvalidLengthsShouldRevert() public {
     uint256 seed = 1e18;
     uint256 size = 10;
-    (bytes32 campaignId, IDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
     _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.INVALID_LENGTHS);
@@ -260,11 +260,11 @@ contract DistributorTest is Test {
     uint256 amountSeed0 = bound(seed0, 100, type(uint112).max);
     uint256 amountSeed1 = bound(seed1, 100, type(uint112).max);
 
-    (bytes32 campaignId0, IDistributor.Campaign memory campaign0) = _createCampaign(seed0);
+    (bytes32 campaignId0, IKSDistributor.Campaign memory campaign0) = _createCampaign(seed0);
     (bytes32[] memory leaves0,) = _setUpRewards(campaignId0, amountSeed0, size0, nft0);
     // Make two campaigns have common time interval
     bytes32 campaignId1;
-    IDistributor.Campaign memory campaign1;
+    IKSDistributor.Campaign memory campaign1;
     {
       campaign1.startTimestamp = campaign0.startTimestamp;
       campaign1.endTimestamp = campaign0.endTimestamp;
@@ -282,14 +282,14 @@ contract DistributorTest is Test {
       bytes32[] memory proof = leaves0.getProof(0);
       (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed0, 0);
       datas[0] = abi.encodeCall(
-        IDistributor.claimRewardsForAccount, (campaignId0, tokens, amounts, proof, account)
+        IKSDistributor.claimRewardsForAccount, (campaignId0, tokens, amounts, proof, account)
       );
     }
     {
       bytes32[] memory proof = leaves1.getProof(0);
       (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed1, 0);
       datas[1] = abi.encodeCall(
-        IDistributor.claimRewardsForAccount, (campaignId1, tokens, amounts, proof, account)
+        IKSDistributor.claimRewardsForAccount, (campaignId1, tokens, amounts, proof, account)
       );
     }
     {
@@ -299,7 +299,7 @@ contract DistributorTest is Test {
       bytes32[] memory proof = leaves0.getProof(1);
       (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed0, 1);
       datas[2] = abi.encodeCall(
-        IDistributor.claimRewardsForERC721,
+        IKSDistributor.claimRewardsForERC721,
         (campaignId0, address(nft0), erc721Id, tokens, amounts, proof, account)
       );
     }
@@ -310,7 +310,7 @@ contract DistributorTest is Test {
       bytes32[] memory proof = leaves1.getProof(1);
       (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed1, 1);
       datas[3] = abi.encodeCall(
-        IDistributor.claimRewardsForERC721,
+        IKSDistributor.claimRewardsForERC721,
         (campaignId1, address(nft1), erc721Id, tokens, amounts, proof, account)
       );
     }
@@ -324,12 +324,12 @@ contract DistributorTest is Test {
     distributor.batchClaimRewards(datas);
   }
 
-  function _setUpDistributor() internal {
+  function _setUpKSDistributor() internal {
     address[] memory initialOperators = new address[](1);
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
-    distributor = new Distributor(owner, initialOperators, initialGuardians);
+    distributor = new KSDistributor(owner, initialOperators, initialGuardians);
   }
 
   function _setUpTokens() internal {
@@ -351,7 +351,7 @@ contract DistributorTest is Test {
 
   function _createCampaign(uint256 seed)
     internal
-    returns (bytes32 campaignId, Distributor.Campaign memory campaign)
+    returns (bytes32 campaignId, KSDistributor.Campaign memory campaign)
   {
     campaign.startTimestamp = block.timestamp + bound(seed, 100, MAX_TIME_DURATION);
     campaign.endTimestamp = campaign.startTimestamp + bound(seed, 1 hours, MAX_TIME_DURATION);
@@ -420,18 +420,18 @@ contract DistributorTest is Test {
           continue;
         } else if (revertType == RevertType.INVALID_PROOF) {
           proof = new bytes32[](proof.length);
-          vm.expectRevert(IDistributor.InvalidProof.selector);
+          vm.expectRevert(IKSDistributor.InvalidProof.selector);
           distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
           continue;
         } else if (revertType == RevertType.INVALID_LENGTHS) {
-          vm.expectRevert(IDistributor.InvalidLengths.selector);
+          vm.expectRevert(IKSDistributor.InvalidLengths.selector);
           distributor.claimRewardsForAccount(campaignId, tokens, new uint256[](3), proof, recipient);
           continue;
         } else {
           vm.expectRevert(
             revertType == RevertType.TOO_EARLY
-              ? IDistributor.TooEarly.selector
-              : IDistributor.TooLate.selector
+              ? IKSDistributor.TooEarly.selector
+              : IKSDistributor.TooLate.selector
           );
           distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
           continue;
@@ -447,14 +447,14 @@ contract DistributorTest is Test {
           continue;
         } else if (revertType == RevertType.INVALID_PROOF) {
           proof = new bytes32[](proof.length);
-          vm.expectRevert(IDistributor.InvalidProof.selector);
+          vm.expectRevert(IKSDistributor.InvalidProof.selector);
           vm.prank(account);
           distributor.claimRewardsForERC721(
             campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient
           );
           continue;
         } else if (revertType == RevertType.INVALID_LENGTHS) {
-          vm.expectRevert(IDistributor.InvalidLengths.selector);
+          vm.expectRevert(IKSDistributor.InvalidLengths.selector);
           vm.prank(account);
           distributor.claimRewardsForERC721(
             campaignId, address(nft), erc721Id, tokens, new uint256[](3), proof, recipient
@@ -463,8 +463,8 @@ contract DistributorTest is Test {
         } else {
           vm.expectRevert(
             revertType == RevertType.TOO_EARLY
-              ? IDistributor.TooEarly.selector
-              : IDistributor.TooLate.selector
+              ? IKSDistributor.TooEarly.selector
+              : IKSDistributor.TooLate.selector
           );
           vm.prank(account);
           distributor.claimRewardsForERC721(
@@ -495,7 +495,7 @@ contract DistributorTest is Test {
           _verifyClaimedAmountsForAccount(campaignId, account, tokens, amounts, recipient);
         vm.prank(account);
         vm.expectEmit(address(distributor));
-        emit IDistributor.RewardsClaimedForAccount(
+        emit IKSDistributor.RewardsClaimedForAccount(
           campaignId, account, tokens, claimable, recipient
         );
         distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
@@ -507,7 +507,7 @@ contract DistributorTest is Test {
         );
         vm.prank(account);
         vm.expectEmit(address(distributor));
-        emit IDistributor.RewardsClaimedForERC721(
+        emit IKSDistributor.RewardsClaimedForERC721(
           campaignId, address(nft), erc721Id, account, tokens, claimable, recipient
         );
         distributor.claimRewardsForERC721(

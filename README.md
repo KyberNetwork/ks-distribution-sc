@@ -1,19 +1,17 @@
-## Foundry
+# KyberSwap Rewards KSDistributor
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+The **KSDistributor**, is a smart contract allowing the distribution of multiple ERC20 tokens through multiple campaigns, each with its own distribution schedule and Merkle tree. The design is heavily inspired by the [Universal Rewards Distributor](https://github.com/morpho-org/universal-rewards-distributor) by Morpho Protocol. Compared to the URD, the KSD has the following differences:
 
-Foundry consists of:
-
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
-
-## Documentation
-
-https://book.getfoundry.sh/
+- Supports multiple campaigns, each with its own Merkle tree and distribution schedule.
+- Supports distributing rewards to NFTs' holders, not just to addresses.
+- Supports claiming rewards on behalf of another address.
+- Supports batch claiming of rewards.
 
 ## Usage
+
+### Pre-requisites
+- Install [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- Install [Yarn](https://yarnpkg.com/getting-started/install)
 
 ### Build
 
@@ -39,28 +37,14 @@ $ forge fmt
 $ forge snapshot
 ```
 
-### Anvil
-
-```shell
-$ anvil
-```
-
 ### Deploy
 
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge create src/KSDistributor.sol:KSDistributor --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
-### Cast
+### Generate Merkle Tree
 
 ```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+$ yarn ts-node script/generate-merkle-tree.ts
 ```
