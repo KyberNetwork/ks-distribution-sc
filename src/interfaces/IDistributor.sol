@@ -32,6 +32,9 @@ interface IDistributor {
     address recipient
   );
 
+  /// @notice Thrown when the campaign has too short duration
+  error TooShortDuration();
+
   /// @notice Thrown when a campaign already exists
   error CampaignAlreadyExists(bytes32 campaignId);
 
@@ -49,6 +52,9 @@ interface IDistributor {
 
   /// @notice Thrown when the claimant is unauthorized
   error UnauthorizedClaimant(address claimant);
+
+  /// @notice Thrown when the selector is invalid
+  error InvalidSelector(bytes4 selector);
 
   struct Campaign {
     uint256 startTimestamp;
@@ -134,4 +140,10 @@ interface IDistributor {
     bytes32[] calldata proof,
     address recipient
   ) external;
+
+  /**
+   * @notice Claims rewards in a batch
+   * @param datas the datas to call in order to claim rewards
+   */
+  function batchClaimRewards(bytes[] calldata datas) external;
 }

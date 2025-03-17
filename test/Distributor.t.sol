@@ -21,7 +21,7 @@ contract DistributorTest is Test {
   }
 
   uint256 public constant MAX_CAMPAIGN_SIZE = 20;
-  uint256 public constant MAX_TIME_DURATION = 2 hours;
+  uint256 public constant MAX_TIME_DURATION = 1 days;
 
   Distributor public distributor;
 
@@ -44,12 +44,29 @@ contract DistributorTest is Test {
 
   function testOnlyOperatorCanCreateCampaign() public {
     vm.expectPartialRevert(KyberSwapRole.KSRoleNotOperator.selector);
-    _createCampaign(0, randomCaller, false);
+    uint256 startTimestamp = block.timestamp + bound(0, 100, MAX_TIME_DURATION);
+    uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
+    bytes memory metadata = abi.encode(0);
+    vm.prank(randomCaller);
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata);
   }
 
   function testCreateCampaignTooLateShouldRevert() public {
     vm.expectRevert(IDistributor.TooLate.selector);
-    _createCampaign(0, operator, true);
+    uint256 startTimestamp = block.timestamp - 100;
+    uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
+    bytes memory metadata = abi.encode(0);
+    vm.prank(operator);
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata);
+  }
+
+  function testCreateCampaignWithTooShortDurationShouldRevert() public {
+    vm.expectRevert(IDistributor.TooShortDuration.selector);
+    uint256 startTimestamp = block.timestamp + bound(0, 100, MAX_TIME_DURATION);
+    uint256 endTimestamp = startTimestamp + 0.5 hours;
+    bytes memory metadata = abi.encode(0);
+    vm.prank(operator);
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata);
   }
 
   function testCreateCampaignShouldEmitsEvent() public {
@@ -235,6 +252,78 @@ contract DistributorTest is Test {
     _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.INVALID_LENGTHS);
   }
 
+  function testBatchClaim(uint256 seed0, uint256 seed1, uint256 size0, uint256 size1) public {
+    vm.assume(seed0 != seed1);
+
+    size0 = bound(size0, 2, MAX_CAMPAIGN_SIZE);
+    size1 = bound(size1, 2, MAX_CAMPAIGN_SIZE);
+    uint256 amountSeed0 = bound(seed0, 100, type(uint112).max);
+    uint256 amountSeed1 = bound(seed1, 100, type(uint112).max);
+
+    (bytes32 campaignId0, IDistributor.Campaign memory campaign0) = _createCampaign(seed0);
+    (bytes32[] memory leaves0,) = _setUpRewards(campaignId0, amountSeed0, size0, nft0);
+    // Make two campaigns have common time interval
+    bytes32 campaignId1;
+    IDistributor.Campaign memory campaign1;
+    {
+      campaign1.startTimestamp = campaign0.startTimestamp;
+      campaign1.endTimestamp = campaign0.endTimestamp;
+      campaign1.metadata = abi.encode(seed1);
+      vm.prank(operator);
+      campaignId1 = distributor.createCampaign(
+        campaign1.startTimestamp, campaign1.endTimestamp, campaign1.metadata
+      );
+    }
+    (bytes32[] memory leaves1,) = _setUpRewards(campaignId1, amountSeed1, size1, nft1);
+
+    bytes[] memory datas = new bytes[](4);
+    address account = vm.addr(1);
+    {
+      bytes32[] memory proof = leaves0.getProof(0);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed0, 0);
+      datas[0] = abi.encodeCall(
+        IDistributor.claimRewardsForAccount, (campaignId0, tokens, amounts, proof, account)
+      );
+    }
+    {
+      bytes32[] memory proof = leaves1.getProof(0);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed1, 0);
+      datas[1] = abi.encodeCall(
+        IDistributor.claimRewardsForAccount, (campaignId1, tokens, amounts, proof, account)
+      );
+    }
+    {
+      uint256 erc721Id = _getErc721Id(campaignId0, 1);
+      vm.prank(vm.addr(2));
+      nft0.approve(account, erc721Id);
+      bytes32[] memory proof = leaves0.getProof(1);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed0, 1);
+      datas[2] = abi.encodeCall(
+        IDistributor.claimRewardsForERC721,
+        (campaignId0, address(nft0), erc721Id, tokens, amounts, proof, account)
+      );
+    }
+    {
+      uint256 erc721Id = _getErc721Id(campaignId1, 1);
+      vm.prank(vm.addr(2));
+      nft1.approve(account, erc721Id);
+      bytes32[] memory proof = leaves1.getProof(1);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed1, 1);
+      datas[3] = abi.encodeCall(
+        IDistributor.claimRewardsForERC721,
+        (campaignId1, address(nft1), erc721Id, tokens, amounts, proof, account)
+      );
+    }
+
+    vm.warp(campaign0.startTimestamp);
+    vm.prank(account);
+    vm.expectCall(address(distributor), datas[0]);
+    vm.expectCall(address(distributor), datas[1]);
+    vm.expectCall(address(distributor), datas[2]);
+    vm.expectCall(address(distributor), datas[3]);
+    distributor.batchClaimRewards(datas);
+  }
+
   function _setUpDistributor() internal {
     address[] memory initialOperators = new address[](1);
     initialOperators[0] = operator;
@@ -246,38 +335,30 @@ contract DistributorTest is Test {
   function _setUpTokens() internal {
     token0 = new ERC20Mock();
     token1 = new ERC20Mock();
-    nft0 = new ERC721Mock('NFT0', 'NFT0');
-    nft1 = new ERC721Mock('NFT1', 'NFT1');
+    nft0 = new ERC721Mock();
+    nft1 = new ERC721Mock();
+    token0.mint(address(distributor), type(uint128).max);
+    token1.mint(address(distributor), type(uint128).max);
   }
 
   function _setUpLabels() internal {
     vm.label(address(distributor), 'distributor');
     vm.label(address(token0), 'token0');
     vm.label(address(token1), 'token1');
-    token0.mint(address(distributor), type(uint128).max);
-    token1.mint(address(distributor), type(uint128).max);
     vm.label(address(nft0), 'nft0');
     vm.label(address(nft1), 'nft1');
-  }
-
-  function _createCampaign(uint256 seed, address caller, bool tooLate)
-    internal
-    returns (bytes32 campaignId, Distributor.Campaign memory campaign)
-  {
-    campaign.startTimestamp =
-      tooLate ? block.timestamp - 100 : block.timestamp + bound(seed, 100, MAX_TIME_DURATION);
-    campaign.endTimestamp = campaign.startTimestamp + bound(seed, 100, MAX_TIME_DURATION);
-    campaign.metadata = abi.encode(seed);
-    vm.prank(caller);
-    campaignId =
-      distributor.createCampaign(campaign.startTimestamp, campaign.endTimestamp, campaign.metadata);
   }
 
   function _createCampaign(uint256 seed)
     internal
     returns (bytes32 campaignId, Distributor.Campaign memory campaign)
   {
-    return _createCampaign(seed, operator, false);
+    campaign.startTimestamp = block.timestamp + bound(seed, 100, MAX_TIME_DURATION);
+    campaign.endTimestamp = campaign.startTimestamp + bound(seed, 1 hours, MAX_TIME_DURATION);
+    campaign.metadata = abi.encode(seed);
+    vm.prank(operator);
+    campaignId =
+      distributor.createCampaign(campaign.startTimestamp, campaign.endTimestamp, campaign.metadata);
   }
 
   function _setUpRewards(
@@ -300,7 +381,7 @@ contract DistributorTest is Test {
       }
 
       (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed, i);
-      leaves[i] = keccak256(abi.encode(infoHash, tokens, amounts));
+      leaves[i] = keccak256(bytes.concat(keccak256(abi.encode(infoHash, tokens, amounts))));
     }
 
     root = leaves.getRoot();
@@ -447,7 +528,7 @@ contract DistributorTest is Test {
     return uint256(keccak256(abi.encode(campaignId, i)));
   }
 
-  function _getTokensAndAmounts(uint256 amountSSeeed, uint256 i)
+  function _getTokensAndAmounts(uint256 amountSeed, uint256 i)
     internal
     view
     returns (address[] memory tokens, uint256[] memory amounts)
@@ -456,19 +537,19 @@ contract DistributorTest is Test {
       tokens = new address[](1);
       tokens[0] = address(token0);
       amounts = new uint256[](1);
-      amounts[0] = amountSSeeed / (i + 1);
+      amounts[0] = amountSeed / (i + 1);
     } else if (i % 3 == 1) {
       tokens = new address[](1);
       tokens[0] = address(token1);
       amounts = new uint256[](1);
-      amounts[0] = amountSSeeed / (i + 1);
+      amounts[0] = amountSeed / (i + 1);
     } else {
       tokens = new address[](2);
       tokens[0] = address(token0);
       tokens[1] = address(token1);
       amounts = new uint256[](2);
-      amounts[0] = amountSSeeed / (i + 1);
-      amounts[1] = amountSSeeed / (i + 1);
+      amounts[0] = amountSeed / (i + 1);
+      amounts[1] = amountSeed / (i + 1);
     }
   }
 

@@ -22,3 +22,6 @@ log
 # Certora
 .certora_internal/
 emv-*/
+
+# Node.js
+node_modules/

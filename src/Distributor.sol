@@ -9,6 +9,8 @@ import 'openzeppelin-contracts/utils/cryptography/MerkleProof.sol';
 contract Distributor is IDistributor, KSRescueV2 {
   using SafeERC20 for IERC20;
 
+  uint256 public constant MIN_CAMPAIGN_DURATION = 1 hours;
+
   /// @inheritdoc IDistributor
   mapping(bytes32 campaignId => Campaign) public campaigns;
 
@@ -56,11 +58,12 @@ contract Distributor is IDistributor, KSRescueV2 {
    * @return campaignId the unique id of the campaign
    */
   function createCampaign(uint256 startTimestamp, uint256 endTimestamp, bytes calldata metadata)
-    external
+    public
     onlyOperator
     onlyBefore(startTimestamp)
     returns (bytes32 campaignId)
   {
+    require(startTimestamp + MIN_CAMPAIGN_DURATION <= endTimestamp, TooShortDuration());
     campaignId = keccak256(abi.encode(startTimestamp, endTimestamp, metadata));
     require(campaigns[campaignId].startTimestamp == 0, CampaignAlreadyExists(campaignId));
     campaigns[campaignId] = Campaign(startTimestamp, endTimestamp, metadata);
@@ -74,7 +77,7 @@ contract Distributor is IDistributor, KSRescueV2 {
    * @param newRoot the new Merkle root
    */
   function updateRoot(bytes32 campaignId, bytes32 newRoot)
-    external
+    public
     onlyOperator
     onlyBefore(campaigns[campaignId].endTimestamp)
   {
@@ -86,7 +89,7 @@ contract Distributor is IDistributor, KSRescueV2 {
 
   /// @inheritdoc IDistributor
   function getClaimedAmountForAccount(bytes32 campaignId, address account, address token)
-    external
+    public
     view
     returns (uint256)
   {
@@ -100,7 +103,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     address erc721Addr,
     uint256 erc721Id,
     address token
-  ) external view returns (uint256) {
+  ) public view returns (uint256) {
     bytes32 infoHash = keccak256(abi.encode(campaignId, erc721Addr, erc721Id));
     return claimed[infoHash][token];
   }
@@ -113,7 +116,7 @@ contract Distributor is IDistributor, KSRescueV2 {
     bytes32[] calldata proof,
     address recipient
   )
-    external
+    public
     onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp)
     whenNotPaused
   {
@@ -122,7 +125,9 @@ contract Distributor is IDistributor, KSRescueV2 {
     bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
     require(
       MerkleProof.verifyCalldata(
-        proof, roots[campaignId], keccak256(abi.encode(infoHash, tokens, amounts))
+        proof,
+        roots[campaignId],
+        keccak256(bytes.concat(keccak256(abi.encode(infoHash, tokens, amounts))))
       ),
       InvalidProof()
     );
@@ -141,25 +146,29 @@ contract Distributor is IDistributor, KSRescueV2 {
     bytes32[] calldata proof,
     address recipient
   )
-    external
+    public
     onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp)
     whenNotPaused
   {
     require(tokens.length == amounts.length, InvalidLengths());
 
     address msgSender = _msgSender();
-    IERC721 nft = IERC721(erc721Addr);
-    address nftOwner = nft.ownerOf(erc721Id);
-    require(
-      nftOwner == msgSender || nft.getApproved(erc721Id) == msgSender
-        || nft.isApprovedForAll(nftOwner, msgSender),
-      UnauthorizedClaimant(msgSender)
-    );
+    {
+      IERC721 nft = IERC721(erc721Addr);
+      address nftOwner = nft.ownerOf(erc721Id);
+      require(
+        nftOwner == msgSender || nft.getApproved(erc721Id) == msgSender
+          || nft.isApprovedForAll(nftOwner, msgSender),
+        UnauthorizedClaimant(msgSender)
+      );
+    }
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, erc721Addr, erc721Id));
     require(
       MerkleProof.verifyCalldata(
-        proof, roots[campaignId], keccak256(abi.encode(infoHash, tokens, amounts))
+        proof,
+        roots[campaignId],
+        keccak256(bytes.concat(keccak256(abi.encode(infoHash, tokens, amounts))))
       ),
       InvalidProof()
     );
@@ -168,6 +177,20 @@ contract Distributor is IDistributor, KSRescueV2 {
     emit RewardsClaimedForERC721(
       campaignId, erc721Addr, erc721Id, msgSender, tokens, claimedAmounts, recipient
     );
+  }
+
+  /// @inheritdoc IDistributor
+  function batchClaimRewards(bytes[] calldata datas) public {
+    for (uint256 i = 0; i < datas.length; i++) {
+      bytes4 selector = bytes4(datas[i][:4]);
+      require(
+        selector == this.claimRewardsForAccount.selector
+          || selector == this.claimRewardsForERC721.selector,
+        InvalidSelector(selector)
+      );
+      (bool success,) = address(this).delegatecall(datas[i]);
+      require(success);
+    }
   }
 
   /// @notice Transfers the rewards to the recipient

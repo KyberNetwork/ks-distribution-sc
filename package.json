@@ -1,0 +1,13 @@
+{
+  "name": "ks-distribution-sc",
+  "packageManager": "yarn@4.7.0",
+  "dependencies": {
+    "@metamask/abi-utils": "^3.0.0",
+    "@openzeppelin/merkle-tree": "^1.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}
