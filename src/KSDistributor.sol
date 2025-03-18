@@ -50,14 +50,8 @@ contract KSDistributor is IKSDistributor, KSRescueV2 {
     }
   }
 
-  /**
-   * @notice Creates a new campaign
-   * @param startTimestamp the start timestamp of the campaign
-   * @param endTimestamp the end timestamp of the campaign
-   * @param metadata the metadata of the campaign
-   * @return campaignId the unique id of the campaign
-   */
-  function createCampaign(uint256 startTimestamp, uint256 endTimestamp, bytes calldata metadata)
+  /// @inheritdoc IKSDistributor
+  function createCampaign(uint256 startTimestamp, uint256 endTimestamp, string calldata metadata)
     public
     onlyOperator
     onlyBefore(startTimestamp)
@@ -71,11 +65,7 @@ contract KSDistributor is IKSDistributor, KSRescueV2 {
     emit CampaignCreated(campaignId, startTimestamp, endTimestamp, metadata);
   }
 
-  /**
-   * @notice Updates the Merkle root of a campaign
-   * @param campaignId the unique id of the campaign
-   * @param newRoot the new Merkle root
-   */
+  /// @inheritdoc IKSDistributor
   function updateRoot(bytes32 campaignId, bytes32 newRoot)
     public
     onlyOperator

@@ -2,7 +2,7 @@ import { SimpleMerkleTree } from "@openzeppelin/merkle-tree";
 import { HexString } from "@openzeppelin/merkle-tree/dist/bytes";
 import { keccak256 } from "@openzeppelin/merkle-tree/dist/hashes";
 import { encode } from "@metamask/abi-utils";
-import campaignData from "./input/campaign-data.json";
+import { campaignsData } from "./input/campaigns-data.json";
 import * as fs from "node:fs";
 
 interface Leaf {
@@ -12,6 +12,13 @@ interface Leaf {
   tokens: string[];
   amounts: number[];
   [key: string]: any;
+}
+
+interface Campaign {
+  startTimestamp: string;
+  endTimestamp: string;
+  metadata: string;
+  leaves: Leaf[];
 }
 
 function leafHash(campaignId: string, leaf: Leaf): HexString {
@@ -30,13 +37,19 @@ function leafHash(campaignId: string, leaf: Leaf): HexString {
   return keccak256(keccak256(encode(types, values)));
 }
 
-for (const [campaignId, leaves] of Object.entries(campaignData)) {
+campaignsData.forEach((campaign) => {
+  const campaignId = keccak256(
+    encode(
+      ["uint256", "uint256", "string"],
+      [campaign.startTimestamp, campaign.endTimestamp, campaign.metadata]
+    )
+  );
   console.log("Generating Merkle tree for campaign", campaignId);
-  console.log("Number of leaves:", leaves.length);
-  const leafHashes = leaves.map((leaf) => leafHash(campaignId, leaf));
+  console.log("Number of leaves:", campaign.leaves.length);
+  const leafHashes = campaign.leaves.map((leaf) => leafHash(campaignId, leaf));
   const tree = SimpleMerkleTree.of(leafHashes);
   let userDatas: { leaf: Leaf; proof: string[] }[] = [];
-  leaves.forEach((leaf, index) => {
+  campaign.leaves.forEach((leaf, index) => {
     const proof = tree.getProof(leafHashes[index]);
     userDatas.push({ leaf, proof });
   });
@@ -52,4 +65,4 @@ for (const [campaignId, leaves] of Object.entries(campaignData)) {
       2
     )
   );
-}
+});

@@ -46,7 +46,7 @@ contract KSDistributorTest is Test {
     vm.expectPartialRevert(KyberSwapRole.KSRoleNotOperator.selector);
     uint256 startTimestamp = block.timestamp + bound(0, 100, MAX_TIME_DURATION);
     uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
-    bytes memory metadata = abi.encode(0);
+    string memory metadata = 'metadata';
     vm.prank(randomCaller);
     distributor.createCampaign(startTimestamp, endTimestamp, metadata);
   }
@@ -55,7 +55,7 @@ contract KSDistributorTest is Test {
     vm.expectRevert(IKSDistributor.TooLate.selector);
     uint256 startTimestamp = block.timestamp - 100;
     uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
-    bytes memory metadata = abi.encode(0);
+    string memory metadata = 'metadata';
     vm.prank(operator);
     distributor.createCampaign(startTimestamp, endTimestamp, metadata);
   }
@@ -64,7 +64,7 @@ contract KSDistributorTest is Test {
     vm.expectRevert(IKSDistributor.TooShortDuration.selector);
     uint256 startTimestamp = block.timestamp + bound(0, 100, MAX_TIME_DURATION);
     uint256 endTimestamp = startTimestamp + 0.5 hours;
-    bytes memory metadata = abi.encode(0);
+    string memory metadata = 'metadata';
     vm.prank(operator);
     distributor.createCampaign(startTimestamp, endTimestamp, metadata);
   }
@@ -268,7 +268,7 @@ contract KSDistributorTest is Test {
     {
       campaign1.startTimestamp = campaign0.startTimestamp;
       campaign1.endTimestamp = campaign0.endTimestamp;
-      campaign1.metadata = abi.encode(seed1);
+      campaign1.metadata = 'metadata1';
       vm.prank(operator);
       campaignId1 = distributor.createCampaign(
         campaign1.startTimestamp, campaign1.endTimestamp, campaign1.metadata
@@ -355,7 +355,7 @@ contract KSDistributorTest is Test {
   {
     campaign.startTimestamp = block.timestamp + bound(seed, 100, MAX_TIME_DURATION);
     campaign.endTimestamp = campaign.startTimestamp + bound(seed, 1 hours, MAX_TIME_DURATION);
-    campaign.metadata = abi.encode(seed);
+    campaign.metadata = 'metadata';
     vm.prank(operator);
     campaignId =
       distributor.createCampaign(campaign.startTimestamp, campaign.endTimestamp, campaign.metadata);

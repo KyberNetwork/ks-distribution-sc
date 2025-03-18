@@ -21,6 +21,8 @@ contract GenerateMerkleTreeTest is Test {
   address public operator = makeAddr('operator');
   address public guardian = makeAddr('guardian');
 
+  mapping(address => bool) public etched;
+
   function setUp() public {
     vm.warp(1e18);
     _setUpKSDistributor();
@@ -28,48 +30,70 @@ contract GenerateMerkleTreeTest is Test {
   }
 
   function testGenerateMerkleTree() public {
-    IKSDistributor.Campaign memory campaign = IKSDistributor.Campaign({
-      startTimestamp: block.timestamp + 100,
-      endTimestamp: block.timestamp + 2 hours,
-      metadata: ''
-    });
-    vm.prank(operator);
-    bytes32 campaignId =
-      distributor.createCampaign(campaign.startTimestamp, campaign.endTimestamp, campaign.metadata);
+    string memory datajson = vm.readFile('script/input/campaigns-data.json');
+    for (uint256 i = 0;; i++) {
+      uint256 startTimestamp =
+        datajson.readUintOr(string.concat('.campaignsData[', vm.toString(i), '].startTimestamp'), 0);
+      if (startTimestamp == 0) {
+        break;
+      }
+      uint256 endTimestamp =
+        datajson.readUint(string.concat('.campaignsData[', vm.toString(i), '].endTimestamp'));
+      string memory metadata =
+        datajson.readString(string.concat('.campaignsData[', vm.toString(i), '].metadata'));
+      vm.prank(operator);
+      bytes32 campaignId = distributor.createCampaign(startTimestamp, endTimestamp, metadata);
+      string memory outputjson =
+        vm.readFile(string.concat('script/output/campaign-', vm.toString(campaignId), '.json'));
+      bytes32 root = outputjson.readBytes32('.root');
+      vm.prank(operator);
+      distributor.updateRoot(campaignId, root);
 
-    string memory json = vm.readFile(
-      'script/output/campaign-0x16b707e108b118d5c22a8672bc4a6c5c0e4274c2311bbd4fb849030214db9582.json'
-    );
-    bytes32 root = json.readBytes32('.root');
-    vm.prank(operator);
-    distributor.updateRoot(campaignId, root);
-
-    vm.warp(campaign.startTimestamp + 1);
-    for (uint256 i = 0; i < 18; i++) {
-      address account = json.readAddressOr(
-        string.concat('.userDatas[', vm.toString(i), '].leaf.account'), address(0)
-      );
-      address[] memory tokens =
-        json.readAddressArray(string.concat('.userDatas[', vm.toString(i), '].leaf.tokens'));
-      uint256[] memory amounts =
-        json.readUintArray(string.concat('.userDatas[', vm.toString(i), '].leaf.amounts'));
-      bytes32[] memory proof =
-        json.readBytes32Array(string.concat('.userDatas[', vm.toString(i), '].proof'));
-
-      if (account != address(0)) {
-        vm.prank(account);
-        distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, account);
-      } else {
-        account = vm.addr(i);
-        address erc721Addr =
-          json.readAddress(string.concat('.userDatas[', vm.toString(i), '].leaf.erc721Addr'));
-        uint256 erc721Id =
-          json.readUint(string.concat('.userDatas[', vm.toString(i), '].leaf.erc721Id'));
-        ERC721Mock(erc721Addr).mint(account, erc721Id);
-        vm.prank(account);
-        distributor.claimRewardsForERC721(
-          campaignId, erc721Addr, erc721Id, tokens, amounts, proof, account
+      vm.warp(startTimestamp + 1);
+      for (uint256 j = 0;; j++) {
+        address[] memory tokens = outputjson.readAddressArrayOr(
+          string.concat('.userDatas[', vm.toString(j), '].leaf.tokens'), new address[](0)
         );
+        if (tokens.length == 0) {
+          break;
+        }
+        for (uint256 k = 0; k < tokens.length; k++) {
+          if (!etched[tokens[k]]) {
+            etched[tokens[k]] = true;
+            vm.etch(tokens[k], address(token).code);
+            ERC20Mock(tokens[k]).mint(address(distributor), type(uint128).max);
+          }
+        }
+
+        uint256[] memory amounts =
+          outputjson.readUintArray(string.concat('.userDatas[', vm.toString(j), '].leaf.amounts'));
+        bytes32[] memory proof =
+          outputjson.readBytes32Array(string.concat('.userDatas[', vm.toString(j), '].proof'));
+
+        address account = outputjson.readAddressOr(
+          string.concat('.userDatas[', vm.toString(j), '].leaf.account'), address(0)
+        );
+        if (account != address(0)) {
+          vm.prank(account);
+          distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, account);
+        } else {
+          account = vm.addr(j);
+          address erc721Addr = outputjson.readAddress(
+            string.concat('.userDatas[', vm.toString(j), '].leaf.erc721Addr')
+          );
+          if (!etched[erc721Addr]) {
+            etched[erc721Addr] = true;
+            vm.etch(erc721Addr, address(nft).code);
+          }
+
+          uint256 erc721Id =
+            outputjson.readUint(string.concat('.userDatas[', vm.toString(j), '].leaf.erc721Id'));
+          ERC721Mock(erc721Addr).mint(account, erc721Id);
+          vm.prank(account);
+          distributor.claimRewardsForERC721(
+            campaignId, erc721Addr, erc721Id, tokens, amounts, proof, account
+          );
+        }
       }
     }
   }
@@ -79,16 +103,6 @@ contract GenerateMerkleTreeTest is Test {
     token = new ERC20Mock();
     nft = new ERC721Mock();
     vm.stopPrank();
-
-    vm.etch(0x2e234DAe75C793f67A35089C9d99245E1C58470b, address(token).code);
-    vm.etch(0xF62849F9A0B5Bf2913b396098F7c7019b51A820a, address(token).code);
-    vm.etch(0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9, address(nft).code);
-    ERC20Mock(0x2e234DAe75C793f67A35089C9d99245E1C58470b).mint(
-      address(distributor), type(uint128).max
-    );
-    ERC20Mock(0xF62849F9A0B5Bf2913b396098F7c7019b51A820a).mint(
-      address(distributor), type(uint128).max
-    );
   }
 
   function _setUpKSDistributor() internal {

@@ -6,7 +6,7 @@ import {IERC20} from 'openzeppelin-contracts/token/ERC20/IERC20.sol';
 interface IKSDistributor {
   /// @notice Emitted when a new campaign is created
   event CampaignCreated(
-    bytes32 indexed campaignId, uint256 startTimestamp, uint256 endTimestamp, bytes metadata
+    bytes32 indexed campaignId, uint256 startTimestamp, uint256 endTimestamp, string metadata
   );
 
   /// @notice Emitted when the Merkle root of a campaign is updated
@@ -59,7 +59,7 @@ interface IKSDistributor {
   struct Campaign {
     uint256 startTimestamp;
     uint256 endTimestamp;
-    bytes metadata;
+    string metadata;
   }
 
   /**
@@ -72,13 +72,31 @@ interface IKSDistributor {
   function campaigns(bytes32 campaignId)
     external
     view
-    returns (uint256 startTimestamp, uint256 endTimestamp, bytes memory metadata);
+    returns (uint256 startTimestamp, uint256 endTimestamp, string memory metadata);
 
   /**
    * @notice Returns the Merkle root of a campaign
    * @param campaignId the unique id of the campaign
    */
   function roots(bytes32 campaignId) external view returns (bytes32);
+
+  /**
+   * @notice Creates a new campaign
+   * @param startTimestamp the start timestamp of the campaign
+   * @param endTimestamp the end timestamp of the campaign
+   * @param metadata the metadata of the campaign
+   * @return campaignId the unique id of the campaign
+   */
+  function createCampaign(uint256 startTimestamp, uint256 endTimestamp, string calldata metadata)
+    external
+    returns (bytes32 campaignId);
+
+  /**
+   * @notice Updates the Merkle root of a campaign
+   * @param campaignId the unique id of the campaign
+   * @param newRoot the new Merkle root
+   */
+  function updateRoot(bytes32 campaignId, bytes32 newRoot) external;
 
   /**
    * @notice Returns the claimed amount for an account in a campaign
