@@ -143,15 +143,7 @@ contract KSDistributor is IKSDistributor, KSRescueV2 {
     require(tokens.length == amounts.length, InvalidLengths());
 
     address msgSender = _msgSender();
-    {
-      IERC721 nft = IERC721(erc721Addr);
-      address nftOwner = nft.ownerOf(erc721Id);
-      require(
-        nftOwner == msgSender || nft.getApproved(erc721Id) == msgSender
-          || nft.isApprovedForAll(nftOwner, msgSender),
-        UnauthorizedClaimant(msgSender)
-      );
-    }
+    require(msgSender == IERC721(erc721Addr).ownerOf(erc721Id), UnauthorizedClaimant(msgSender));
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, erc721Addr, erc721Id));
     require(

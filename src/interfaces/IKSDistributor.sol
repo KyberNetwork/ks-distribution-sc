@@ -50,7 +50,7 @@ interface IKSDistributor {
   /// @notice Thrown when the proof is invalid
   error InvalidProof();
 
-  /// @notice Thrown when the claimant is unauthorized
+  /// @notice Thrown when the claimant is not nft's owner
   error UnauthorizedClaimant(address claimant);
 
   /// @notice Thrown when the selector is invalid

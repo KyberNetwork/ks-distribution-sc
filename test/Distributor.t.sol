@@ -122,67 +122,7 @@ contract KSDistributorTest is Test {
     _claimAndVerifyRewards(campaignId, amountSeed * 2, leaves, nft0);
   }
 
-  function testApprovedOperatorCanClaimRewardsForERC721() public {
-    uint256 seed = 1e18;
-    uint256 size = 10;
-    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
-    (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
-    vm.warp(campaign.startTimestamp + 1);
-
-    uint256 i = 1;
-    address account = vm.addr(i + 1);
-    address recipient = vm.addr(i * i + 1);
-    (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(seed, i);
-
-    bytes32[] memory proof = leaves.getProof(i);
-    uint256 erc721Id = _getErc721Id(campaignId, i);
-    uint256[] memory claimable = _verifyClaimedAmountsForERC721(
-      campaignId, address(nft0), erc721Id, tokens, amounts, recipient
-    );
-    vm.prank(account);
-    nft0.approve(operator, erc721Id);
-    vm.prank(operator);
-    vm.expectEmit(address(distributor));
-    emit IKSDistributor.RewardsClaimedForERC721(
-      campaignId, address(nft0), erc721Id, operator, tokens, claimable, recipient
-    );
-    distributor.claimRewardsForERC721(
-      campaignId, address(nft0), erc721Id, tokens, amounts, proof, recipient
-    );
-    _verifyClaimedAmountsForERC721(campaignId, address(nft0), erc721Id, tokens, amounts, recipient);
-  }
-
-  function testApprovedForAllOperatorCanClaimRewardsForERC721() public {
-    uint256 seed = 1e18;
-    uint256 size = 10;
-    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
-    (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
-    vm.warp(campaign.startTimestamp + 1);
-
-    uint256 i = 1;
-    address account = vm.addr(i + 1);
-    address recipient = vm.addr(i * i + 1);
-    (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(seed, i);
-
-    bytes32[] memory proof = leaves.getProof(i);
-    uint256 erc721Id = _getErc721Id(campaignId, i);
-    uint256[] memory claimable = _verifyClaimedAmountsForERC721(
-      campaignId, address(nft0), erc721Id, tokens, amounts, recipient
-    );
-    vm.prank(account);
-    nft0.setApprovalForAll(operator, true);
-    vm.prank(operator);
-    vm.expectEmit(address(distributor));
-    emit IKSDistributor.RewardsClaimedForERC721(
-      campaignId, address(nft0), erc721Id, operator, tokens, claimable, recipient
-    );
-    distributor.claimRewardsForERC721(
-      campaignId, address(nft0), erc721Id, tokens, amounts, proof, recipient
-    );
-    _verifyClaimedAmountsForERC721(campaignId, address(nft0), erc721Id, tokens, amounts, recipient);
-  }
-
-  function testOnlyAuthorizedAccountCanClaimRewardsForERC721() public {
+  function testOnlyERC721OwnerCanClaimRewardsForERC721() public {
     uint256 seed = 1e18;
     uint256 size = 10;
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
@@ -295,7 +235,7 @@ contract KSDistributorTest is Test {
     {
       uint256 erc721Id = _getErc721Id(campaignId0, 1);
       vm.prank(vm.addr(2));
-      nft0.approve(account, erc721Id);
+      nft0.transferFrom(vm.addr(2), account, erc721Id);
       bytes32[] memory proof = leaves0.getProof(1);
       (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed0, 1);
       datas[2] = abi.encodeCall(
@@ -306,7 +246,7 @@ contract KSDistributorTest is Test {
     {
       uint256 erc721Id = _getErc721Id(campaignId1, 1);
       vm.prank(vm.addr(2));
-      nft1.approve(account, erc721Id);
+      nft1.transferFrom(vm.addr(2), account, erc721Id);
       bytes32[] memory proof = leaves1.getProof(1);
       (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed1, 1);
       datas[3] = abi.encodeCall(
