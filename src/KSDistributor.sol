@@ -5,11 +5,13 @@ import './interfaces/IKSDistributor.sol';
 
 import 'ks-growth-utils-sc/KSRescueV2.sol';
 
+import 'openzeppelin-contracts/utils/Address.sol';
 import 'openzeppelin-contracts/utils/ReentrancyGuard.sol';
 import 'openzeppelin-contracts/utils/cryptography/MerkleProof.sol';
 
 contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   using SafeERC20 for IERC20;
+  using Address for address;
 
   uint256 public constant MIN_CAMPAIGN_DURATION = 1 hours;
 
@@ -174,8 +176,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
           || selector == this.claimRewardsForERC721.selector,
         InvalidSelector(selector)
       );
-      (bool success,) = address(this).delegatecall(datas[i]);
-      require(success);
+      address(this).functionDelegateCall(datas[i]);
     }
   }
 
