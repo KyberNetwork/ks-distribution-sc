@@ -4,9 +4,11 @@ pragma solidity ^0.8.0;
 import './interfaces/IKSDistributor.sol';
 
 import 'ks-growth-utils-sc/KSRescueV2.sol';
+
+import 'openzeppelin-contracts/utils/ReentrancyGuard.sol';
 import 'openzeppelin-contracts/utils/cryptography/MerkleProof.sol';
 
-contract KSDistributor is IKSDistributor, KSRescueV2 {
+contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   using SafeERC20 for IERC20;
 
   uint256 public constant MIN_CAMPAIGN_DURATION = 1 hours;
@@ -108,6 +110,7 @@ contract KSDistributor is IKSDistributor, KSRescueV2 {
   )
     public
     onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp)
+    nonReentrant
     whenNotPaused
   {
     require(tokens.length == amounts.length, InvalidLengths());
@@ -138,6 +141,7 @@ contract KSDistributor is IKSDistributor, KSRescueV2 {
   )
     public
     onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp)
+    nonReentrant
     whenNotPaused
   {
     require(tokens.length == amounts.length, InvalidLengths());
