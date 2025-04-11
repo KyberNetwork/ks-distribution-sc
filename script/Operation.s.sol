@@ -9,7 +9,9 @@ contract OperationScript is BaseScript {
   {
     vm.startBroadcast();
     IKSDistributor distributor = _getDistributor();
-    bytes32 campaignId = distributor.createCampaign(startTimestamp, endTimestamp, metadata);
+    uint256 _campaignId = 0;
+    bytes32 campaignId =
+      distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(_campaignId));
     console.log('Campaign %s created with:', vm.toString(campaignId));
     console.log('Start timestamp:', startTimestamp);
     console.log('End timestamp:', endTimestamp);

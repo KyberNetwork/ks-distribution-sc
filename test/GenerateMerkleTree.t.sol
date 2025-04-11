@@ -42,7 +42,9 @@ contract GenerateMerkleTreeTest is Test {
       string memory metadata =
         datajson.readString(string.concat('.campaignsData[', vm.toString(i), '].metadata'));
       vm.prank(operator);
-      bytes32 campaignId = distributor.createCampaign(startTimestamp, endTimestamp, metadata);
+      uint256 _campaignId = 0;
+      bytes32 campaignId =
+        distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(_campaignId));
       string memory outputjson =
         vm.readFile(string.concat('script/output/campaign-', vm.toString(campaignId), '.json'));
       bytes32 root = outputjson.readBytes32('.root');

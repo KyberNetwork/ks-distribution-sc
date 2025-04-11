@@ -12,6 +12,12 @@ interface IKSDistributor {
   /// @notice Emitted when the Merkle root of a campaign is updated
   event RootUpdated(bytes32 indexed campaignId, bytes32 oldRoot, bytes32 newRoot);
 
+  /// @notice Emitted when startTimestamp of a campaign is updated
+  event StartTimestampUpdated(bytes32 indexed campaignId, uint256 oldTime, uint256 newTime);
+
+  /// @notice Emitted when endTimestamp of a campaign is updated
+  event EndTimestampUpdated(bytes32 indexed campaignId, uint256 oldTime, uint256 newTime);
+
   /// @notice Emitted when rewards are claimed for an account
   event RewardsClaimedForAccount(
     bytes32 indexed campaignId,
@@ -87,9 +93,12 @@ interface IKSDistributor {
    * @param metadata the metadata of the campaign
    * @return campaignId the unique id of the campaign
    */
-  function createCampaign(uint256 startTimestamp, uint256 endTimestamp, string calldata metadata)
-    external
-    returns (bytes32 campaignId);
+  function createCampaign(
+    uint256 startTimestamp,
+    uint256 endTimestamp,
+    string calldata metadata,
+    bytes32 salt
+  ) external returns (bytes32 campaignId);
 
   /**
    * @notice Updates the Merkle root of a campaign
@@ -97,6 +106,20 @@ interface IKSDistributor {
    * @param newRoot the new Merkle root
    */
   function updateRoot(bytes32 campaignId, bytes32 newRoot) external;
+
+  /**
+   * @notice Updates startTimestamp of a campaign
+   * @param campaignId the unique id of the campaign
+   * @param startTimestamp the new startTimestamp
+   */
+  function updateStartTimestamp(bytes32 campaignId, uint256 startTimestamp) external;
+
+  /**
+   * @notice Updates endTimestamp of a campaign
+   * @param campaignId the unique id of the campaign
+   * @param endTimestamp the new endTimestamp
+   */
+  function updateEndTimestamp(bytes32 campaignId, uint256 endTimestamp) external;
 
   /**
    * @notice Returns the claimed amount for an account in a campaign
