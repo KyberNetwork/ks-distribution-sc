@@ -40,8 +40,8 @@ function leafHash(campaignId: string, leaf: Leaf): HexString {
 campaignsData.forEach((campaign) => {
   const campaignId = keccak256(
     encode(
-      ["uint256", "uint256", "string"],
-      [campaign.startTimestamp, campaign.endTimestamp, campaign.metadata]
+      ["uint256", "uint256", "string", "bytes32"],
+      [campaign.startTimestamp, campaign.endTimestamp, campaign.metadata, "0x0000000000000000000000000000000000000000000000000000000000000000"]
     )
   );
   console.log("Generating Merkle tree for campaign", campaignId);
