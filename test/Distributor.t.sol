@@ -49,8 +49,8 @@ contract KSDistributorTest is Test {
     string memory metadata = 'metadata';
 
     vm.prank(randomCaller);
-    uint256 campaignId = 0;
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(campaignId));
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
 
   function testCreateCampaignTooLateShouldRevert() public {
@@ -59,8 +59,8 @@ contract KSDistributorTest is Test {
     uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
     string memory metadata = 'metadata';
     vm.prank(operator);
-    uint256 campaignId = 0;
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(campaignId));
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
 
   function testCreateCampaignWithTooShortDurationShouldRevert() public {
@@ -69,8 +69,8 @@ contract KSDistributorTest is Test {
     uint256 endTimestamp = startTimestamp + 0.5 hours;
     string memory metadata = 'metadata';
     vm.prank(operator);
-    uint256 campaignId = 0;
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(campaignId));
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
 
   function testCreateCampaignExactBlockTimestamp() public {
@@ -79,8 +79,8 @@ contract KSDistributorTest is Test {
     uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
     string memory metadata = 'metadata';
     vm.prank(operator);
-    uint256 campaignId = 0;
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(campaignId));
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
 
   function testCreateCampaignExactMinDuration() public {
@@ -88,8 +88,8 @@ contract KSDistributorTest is Test {
     uint256 endTimestamp = startTimestamp + 1 hours;
     string memory metadata = 'metadata';
     vm.startPrank(operator);
-    uint256 campaignId = 0;
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(campaignId));
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
 
   function testCreateCampaignAlreadyExist() public {
@@ -98,15 +98,15 @@ contract KSDistributorTest is Test {
     string memory metadata = 'metadata';
 
     vm.startPrank(operator);
-    uint256 campaignId = 0;
+
     bytes32 _campainId =
-      distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(campaignId));
+      distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
 
     vm.startPrank(operator);
     vm.expectRevert(
       abi.encodeWithSelector(IKSDistributor.CampaignAlreadyExists.selector, _campainId)
     );
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(campaignId));
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
 
   function testCreateCampaignShouldEmitsEvent() public {
@@ -178,6 +178,21 @@ contract KSDistributorTest is Test {
     vm.expectEmit(address(distributor));
     emit IKSDistributor.EndTimestampUpdated(campaignId, campaign.endTimestamp, 0);
     distributor.updateEndTimestamp(campaignId, 0);
+  }
+
+  function testOnlyOperatorCanUpdateMetadata() public {
+    (bytes32 campaignId,) = _createCampaign(100);
+    vm.expectPartialRevert(KyberSwapRole.KSRoleNotOperator.selector);
+    vm.prank(randomCaller);
+    distributor.updateMetadata(campaignId, 'newMetadata');
+  }
+
+  function testUpdateMetadataShouldEmitsEvent() public {
+    (bytes32 campaignId,) = _createCampaign(100);
+    vm.startPrank(operator);
+    vm.expectEmit(address(distributor));
+    emit IKSDistributor.MetadataUpdated(campaignId, 'metadata', 'newMetaData');
+    distributor.updateMetadata(campaignId, 'newMetaData');
   }
 
   function testClaimShouldFollowTheMerkleDistribution(uint256 seed, uint256 size) public {
@@ -351,10 +366,9 @@ contract KSDistributorTest is Test {
       campaign1.startTimestamp = campaign0.startTimestamp;
       campaign1.endTimestamp = campaign0.endTimestamp;
       campaign1.metadata = 'metadata1';
-      uint256 _campaignId = 1;
       vm.prank(operator);
       campaignId1 = distributor.createCampaign(
-        campaign1.startTimestamp, campaign1.endTimestamp, campaign1.metadata, bytes32(_campaignId)
+        campaign1.startTimestamp, campaign1.endTimestamp, campaign1.metadata, bytes32(uint256(1))
       );
     }
     (bytes32[] memory leaves1,) = _setUpRewards(campaignId1, amountSeed1, size1, nft1);
@@ -429,10 +443,9 @@ contract KSDistributorTest is Test {
       campaign1.startTimestamp = campaign0.startTimestamp;
       campaign1.endTimestamp = campaign0.endTimestamp;
       campaign1.metadata = 'metadata1';
-      uint256 _campaignId = 1;
       vm.prank(operator);
       campaignId1 = distributor.createCampaign(
-        campaign1.startTimestamp, campaign1.endTimestamp, campaign1.metadata, bytes32(_campaignId)
+        campaign1.startTimestamp, campaign1.endTimestamp, campaign1.metadata, bytes32(uint256(1))
       );
     }
     (bytes32[] memory leaves1,) = _setUpRewards(campaignId1, amountSeed1, size1, nft1);
@@ -602,9 +615,8 @@ contract KSDistributorTest is Test {
     campaign.endTimestamp = campaign.startTimestamp + bound(seed, 1 hours, MAX_TIME_DURATION);
     campaign.metadata = 'metadata';
     vm.prank(operator);
-    uint256 _campaignId = 0;
     campaignId = distributor.createCampaign(
-      campaign.startTimestamp, campaign.endTimestamp, campaign.metadata, bytes32(_campaignId)
+      campaign.startTimestamp, campaign.endTimestamp, campaign.metadata, bytes32(0)
     );
   }
 

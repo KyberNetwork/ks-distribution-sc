@@ -41,7 +41,7 @@ campaignsData.forEach((campaign) => {
   const campaignId = keccak256(
     encode(
       ["uint256", "uint256", "string", "bytes32"],
-      [campaign.startTimestamp, campaign.endTimestamp, campaign.metadata, "0x0000000000000000000000000000000000000000000000000000000000000000"]
+      [campaign.startTimestamp, campaign.endTimestamp, campaign.metadata, campaign.salt]
     )
   );
   console.log("Generating Merkle tree for campaign", campaignId);

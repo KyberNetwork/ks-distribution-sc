@@ -58,15 +58,15 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   function createCampaign(
     uint256 initStartTimestamp,
     uint256 initEndTimestamp,
-    string calldata metadata,
+    string calldata initMetadata,
     bytes32 salt
   ) public onlyOperator onlyBefore(initStartTimestamp) returns (bytes32 campaignId) {
     require(initStartTimestamp + MIN_CAMPAIGN_DURATION <= initEndTimestamp, TooShortDuration());
-    campaignId = keccak256(abi.encode(initStartTimestamp, initEndTimestamp, metadata, salt));
+    campaignId = keccak256(abi.encode(initStartTimestamp, initEndTimestamp, initMetadata, salt));
     require(campaigns[campaignId].startTimestamp == 0, CampaignAlreadyExists(campaignId));
-    campaigns[campaignId] = Campaign(initStartTimestamp, initEndTimestamp, metadata);
+    campaigns[campaignId] = Campaign(initStartTimestamp, initEndTimestamp, initMetadata);
 
-    emit CampaignCreated(campaignId, initStartTimestamp, initEndTimestamp, metadata);
+    emit CampaignCreated(campaignId, initStartTimestamp, initEndTimestamp, initMetadata);
   }
 
   /// @inheritdoc IKSDistributor
@@ -103,6 +103,18 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     campaigns[campaignId].startTimestamp = endTimestamp;
 
     emit EndTimestampUpdated(campaignId, oldEndTimestamp, endTimestamp);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function updateMetadata(bytes32 campaignId, string calldata metadata)
+    external
+    override
+    onlyOperator
+  {
+    string memory oldMetadata = campaigns[campaignId].metadata;
+    campaigns[campaignId].metadata = metadata;
+
+    emit MetadataUpdated(campaignId, oldMetadata, metadata);
   }
 
   /// @inheritdoc IKSDistributor

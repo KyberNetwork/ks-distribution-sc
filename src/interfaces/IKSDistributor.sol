@@ -18,6 +18,9 @@ interface IKSDistributor {
   /// @notice Emitted when endTimestamp of a campaign is updated
   event EndTimestampUpdated(bytes32 indexed campaignId, uint256 oldTime, uint256 newTime);
 
+  /// @notice Emitted when metadata of a campaign is updated
+  event MetadataUpdated(bytes32 indexed campaignId, string oldMetadata, string newMetadata);
+
   /// @notice Emitted when rewards are claimed for an account
   event RewardsClaimedForAccount(
     bytes32 indexed campaignId,
@@ -120,6 +123,13 @@ interface IKSDistributor {
    * @param endTimestamp the new endTimestamp
    */
   function updateEndTimestamp(bytes32 campaignId, uint256 endTimestamp) external;
+
+  /**
+   * @notice Updates metadata of a campaign
+   * @param campaignId the unique id of the campaign
+   * @param metadata the new metadata
+   */
+  function updateMetadata(bytes32 campaignId, string calldata metadata) external;
 
   /**
    * @notice Returns the claimed amount for an account in a campaign
