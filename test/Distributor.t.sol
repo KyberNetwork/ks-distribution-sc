@@ -47,8 +47,10 @@ contract KSDistributorTest is Test {
     uint256 startTimestamp = block.timestamp + bound(0, 100, MAX_TIME_DURATION);
     uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
     string memory metadata = 'metadata';
+
     vm.prank(randomCaller);
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata);
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
 
   function testCreateCampaignTooLateShouldRevert() public {
@@ -57,7 +59,8 @@ contract KSDistributorTest is Test {
     uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
     string memory metadata = 'metadata';
     vm.prank(operator);
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata);
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
 
   function testCreateCampaignWithTooShortDurationShouldRevert() public {
@@ -66,7 +69,44 @@ contract KSDistributorTest is Test {
     uint256 endTimestamp = startTimestamp + 0.5 hours;
     string memory metadata = 'metadata';
     vm.prank(operator);
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata);
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
+  }
+
+  function testCreateCampaignExactBlockTimestamp() public {
+    vm.expectRevert(IKSDistributor.TooLate.selector);
+    uint256 startTimestamp = block.timestamp;
+    uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
+    string memory metadata = 'metadata';
+    vm.prank(operator);
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
+  }
+
+  function testCreateCampaignExactMinDuration() public {
+    uint256 startTimestamp = block.timestamp + bound(0, 100, MAX_TIME_DURATION);
+    uint256 endTimestamp = startTimestamp + 1 hours;
+    string memory metadata = 'metadata';
+    vm.startPrank(operator);
+
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
+  }
+
+  function testCreateCampaignAlreadyExist() public {
+    uint256 startTimestamp = block.timestamp + bound(0, 100, MAX_TIME_DURATION);
+    uint256 endTimestamp = startTimestamp + 1 hours;
+    string memory metadata = 'metadata';
+
+    vm.startPrank(operator);
+
+    bytes32 _campainId =
+      distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
+
+    vm.startPrank(operator);
+    vm.expectRevert(
+      abi.encodeWithSelector(IKSDistributor.CampaignAlreadyExists.selector, _campainId)
+    );
+    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
 
   function testCreateCampaignShouldEmitsEvent() public {
@@ -108,6 +148,51 @@ contract KSDistributorTest is Test {
     vm.expectEmit(address(distributor));
     emit IKSDistributor.RootUpdated(campaignId, root, newRoot);
     distributor.updateRoot(campaignId, newRoot);
+  }
+
+  function testOnlyOperatorCanUpdateStartTimestamp() public {
+    (bytes32 campaignId,) = _createCampaign(100);
+    vm.expectPartialRevert(KyberSwapRole.KSRoleNotOperator.selector);
+    vm.prank(randomCaller);
+    distributor.updateStartTimestamp(campaignId, 0);
+  }
+
+  function testUpdateStartTimestampShouldEmitsEvent() public {
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(100);
+    vm.startPrank(operator);
+    vm.expectEmit(address(distributor));
+    emit IKSDistributor.StartTimestampUpdated(campaignId, campaign.startTimestamp, 0);
+    distributor.updateStartTimestamp(campaignId, 0);
+  }
+
+  function testOnlyOperatorCanUpdateEndTimestamp() public {
+    (bytes32 campaignId,) = _createCampaign(100);
+    vm.expectPartialRevert(KyberSwapRole.KSRoleNotOperator.selector);
+    vm.prank(randomCaller);
+    distributor.updateEndTimestamp(campaignId, 0);
+  }
+
+  function testUpdateEndTimestampShouldEmitsEvent() public {
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(100);
+    vm.startPrank(operator);
+    vm.expectEmit(address(distributor));
+    emit IKSDistributor.EndTimestampUpdated(campaignId, campaign.endTimestamp, 0);
+    distributor.updateEndTimestamp(campaignId, 0);
+  }
+
+  function testOnlyOperatorCanUpdateMetadata() public {
+    (bytes32 campaignId,) = _createCampaign(100);
+    vm.expectPartialRevert(KyberSwapRole.KSRoleNotOperator.selector);
+    vm.prank(randomCaller);
+    distributor.updateMetadata(campaignId, 'newMetadata');
+  }
+
+  function testUpdateMetadataShouldEmitsEvent() public {
+    (bytes32 campaignId,) = _createCampaign(100);
+    vm.startPrank(operator);
+    vm.expectEmit(address(distributor));
+    emit IKSDistributor.MetadataUpdated(campaignId, 'metadata', 'newMetaData');
+    distributor.updateMetadata(campaignId, 'newMetaData');
   }
 
   function testClaimShouldFollowTheMerkleDistribution(uint256 seed, uint256 size) public {
@@ -192,6 +277,78 @@ contract KSDistributorTest is Test {
     _claimRewardsWithRevert(campaignId, seed, leaves, nft0, RevertType.INVALID_LENGTHS);
   }
 
+  function testClaimWithEmptyArrayShouldRevert() public {
+    uint256 seed = 1e18;
+    uint256 size = 10;
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
+
+    vm.warp(campaign.startTimestamp + 1);
+    for (uint256 i = 0; i < size; i++) {
+      address account = vm.addr(i + 1);
+      address recipient = vm.addr(i * i + 1);
+      bytes32[] memory proof = leaves.getProof(i);
+      address[] memory tokens = new address[](0);
+      uint256[] memory amounts = new uint256[](0);
+
+      if (i & 1 == 0) {
+        vm.expectRevert(IKSDistributor.InvalidProof.selector);
+        distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+      } else {
+        uint256 erc721Id = _getErc721Id(campaignId, i);
+
+        vm.prank(account);
+        vm.expectRevert(IKSDistributor.InvalidProof.selector);
+        distributor.claimRewardsForERC721(
+          campaignId, address(nft0), erc721Id, tokens, amounts, proof, recipient
+        );
+      }
+    }
+  }
+
+  function testClaimInvalidCampainIdShouldRevert() public {
+    uint256 seed = 1e18;
+    uint256 size = 10;
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
+    vm.warp(campaign.startTimestamp + 1);
+    _claimRewardsWithRevert('', seed, leaves, nft0, RevertType.TOO_LATE);
+  }
+
+  function testClaimWithERC721OwnerChanged() public {
+    uint256 seed = 1e18;
+    uint256 size = 10;
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
+
+    vm.warp(campaign.startTimestamp + 1);
+    for (uint256 i = 0; i < size; i++) {
+      if (i & 1 == 0) continue;
+
+      address account = vm.addr(i + 1);
+      address newAccount = vm.addr(99);
+      address recipient = vm.addr(i * i + 1);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(seed, i);
+
+      bytes32[] memory proof = leaves.getProof(i);
+      uint256 erc721Id = _getErc721Id(campaignId, i);
+
+      vm.prank(account);
+      nft0.safeTransferFrom(account, newAccount, erc721Id);
+
+      vm.prank(account);
+      vm.expectRevert(abi.encodeWithSelector(IKSDistributor.UnauthorizedClaimant.selector, account));
+      distributor.claimRewardsForERC721(
+        campaignId, address(nft0), erc721Id, tokens, amounts, proof, recipient
+      );
+
+      vm.prank(newAccount);
+      distributor.claimRewardsForERC721(
+        campaignId, address(nft0), erc721Id, tokens, amounts, proof, recipient
+      );
+    }
+  }
+
   function testBatchClaim(uint256 seed0, uint256 seed1, uint256 size0, uint256 size1) public {
     vm.assume(seed0 != seed1);
 
@@ -211,7 +368,7 @@ contract KSDistributorTest is Test {
       campaign1.metadata = 'metadata1';
       vm.prank(operator);
       campaignId1 = distributor.createCampaign(
-        campaign1.startTimestamp, campaign1.endTimestamp, campaign1.metadata
+        campaign1.startTimestamp, campaign1.endTimestamp, campaign1.metadata, bytes32(uint256(1))
       );
     }
     (bytes32[] memory leaves1,) = _setUpRewards(campaignId1, amountSeed1, size1, nft1);
@@ -264,6 +421,167 @@ contract KSDistributorTest is Test {
     distributor.batchClaimRewards(datas);
   }
 
+  function testBatchClaimMixedValidAndInvalid(
+    uint256 seed0,
+    uint256 seed1,
+    uint256 size0,
+    uint256 size1
+  ) public {
+    vm.assume(seed0 != seed1);
+
+    size0 = bound(size0, 2, MAX_CAMPAIGN_SIZE);
+    size1 = bound(size1, 2, MAX_CAMPAIGN_SIZE);
+    uint256 amountSeed0 = bound(seed0, 100, type(uint112).max);
+    uint256 amountSeed1 = bound(seed1, 100, type(uint112).max);
+
+    (bytes32 campaignId0, IKSDistributor.Campaign memory campaign0) = _createCampaign(seed0);
+    (bytes32[] memory leaves0,) = _setUpRewards(campaignId0, amountSeed0, size0, nft0);
+    // Make two campaigns have common time interval
+    bytes32 campaignId1;
+    IKSDistributor.Campaign memory campaign1;
+    {
+      campaign1.startTimestamp = campaign0.startTimestamp;
+      campaign1.endTimestamp = campaign0.endTimestamp;
+      campaign1.metadata = 'metadata1';
+      vm.prank(operator);
+      campaignId1 = distributor.createCampaign(
+        campaign1.startTimestamp, campaign1.endTimestamp, campaign1.metadata, bytes32(uint256(1))
+      );
+    }
+    (bytes32[] memory leaves1,) = _setUpRewards(campaignId1, amountSeed1, size1, nft1);
+
+    bytes[] memory datas = new bytes[](4);
+    address account = vm.addr(1);
+    {
+      bytes32[] memory proof = leaves0.getProof(0);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed0, 0);
+      datas[0] = abi.encodeCall(
+        IKSDistributor.claimRewardsForAccount, (campaignId0, tokens, amounts, proof, account)
+      );
+    }
+
+    //invalid claim
+    {
+      bytes32[] memory proof = leaves1.getProof(0);
+      address[] memory tokens = new address[](0);
+      uint256[] memory amounts = new uint256[](0);
+      datas[1] = abi.encodeCall(
+        IKSDistributor.claimRewardsForAccount, (campaignId1, tokens, amounts, proof, account)
+      );
+    }
+    {
+      uint256 erc721Id = _getErc721Id(campaignId0, 1);
+      vm.prank(vm.addr(2));
+      nft0.transferFrom(vm.addr(2), account, erc721Id);
+      bytes32[] memory proof = leaves0.getProof(1);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed0, 1);
+      datas[2] = abi.encodeCall(
+        IKSDistributor.claimRewardsForERC721,
+        (campaignId0, address(nft0), erc721Id, tokens, amounts, proof, account)
+      );
+    }
+    {
+      uint256 erc721Id = _getErc721Id(campaignId1, 1);
+      vm.prank(vm.addr(2));
+      nft1.transferFrom(vm.addr(2), account, erc721Id);
+      bytes32[] memory proof = leaves1.getProof(1);
+      address[] memory tokens = new address[](0);
+      uint256[] memory amounts = new uint256[](0);
+      datas[3] = abi.encodeCall(
+        IKSDistributor.claimRewardsForERC721,
+        (campaignId1, address(nft1), erc721Id, tokens, amounts, proof, account)
+      );
+    }
+
+    vm.warp(campaign0.startTimestamp);
+    vm.prank(account);
+    vm.expectRevert(IKSDistributor.InvalidProof.selector);
+    distributor.batchClaimRewards(datas);
+  }
+
+  function testFullflow(uint256 seed, uint256 size) public {
+    size = bound(size, 1, MAX_CAMPAIGN_SIZE);
+    uint256 amountSeed = bound(seed, 100, type(uint112).max);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
+
+    uint256 latestTime = campaign.startTimestamp;
+    for (uint256 i = 0; i < size; i++) {
+      latestTime = bound(seed, latestTime, campaign.endTimestamp - 1);
+      vm.warp(latestTime);
+
+      address account = vm.addr(i + 1);
+      address recipient = vm.addr(i * i + 1);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed, i);
+
+      bytes32[] memory proof = leaves.getProof(i);
+      if (i & 1 == 0) {
+        vm.prank(account);
+        distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+      } else {
+        uint256 erc721Id = _getErc721Id(campaignId, i);
+        vm.prank(account);
+        distributor.claimRewardsForERC721(
+          campaignId, address(nft0), erc721Id, tokens, amounts, proof, recipient
+        );
+      }
+
+      for (uint256 j = 0; j < tokens.length; j++) {
+        assertEq(IERC20(tokens[j]).balanceOf(recipient), amounts[j]);
+      }
+    }
+
+    //update root for another distribution
+    amountSeed = amountSeed * 2;
+    (leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
+
+    for (uint256 i = 0; i < size; i++) {
+      latestTime = bound(seed, latestTime, campaign.endTimestamp - 1);
+      vm.warp(latestTime);
+
+      address account = vm.addr(i + 1);
+      address recipient = vm.addr(i * i + 1);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed, i);
+
+      bytes32[] memory proof = leaves.getProof(i);
+      if (i & 1 == 0) {
+        vm.prank(account);
+        distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+      } else {
+        uint256 erc721Id = _getErc721Id(campaignId, i);
+        vm.prank(account);
+        distributor.claimRewardsForERC721(
+          campaignId, address(nft0), erc721Id, tokens, amounts, proof, recipient
+        );
+      }
+
+      for (uint256 j = 0; j < tokens.length; j++) {
+        assertEq(IERC20(tokens[j]).balanceOf(recipient), amounts[j]);
+      }
+    }
+
+    vm.warp(campaign.endTimestamp);
+    for (uint256 i = 0; i < size; i++) {
+      address account = vm.addr(i + 1);
+      address recipient = vm.addr(i * i + 1);
+      (address[] memory tokens, uint256[] memory amounts) = _getTokensAndAmounts(amountSeed, i);
+
+      bytes32[] memory proof = leaves.getProof(i);
+      if (i & 1 == 0) {
+        vm.prank(account);
+        vm.expectRevert(IKSDistributor.TooLate.selector);
+        distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+      } else {
+        uint256 erc721Id = _getErc721Id(campaignId, i);
+        vm.prank(account);
+        vm.expectRevert(IKSDistributor.TooLate.selector);
+        distributor.claimRewardsForERC721(
+          campaignId, address(nft0), erc721Id, tokens, amounts, proof, recipient
+        );
+      }
+    }
+  }
+
   function _setUpKSDistributor() internal {
     address[] memory initialOperators = new address[](1);
     initialOperators[0] = operator;
@@ -297,8 +615,9 @@ contract KSDistributorTest is Test {
     campaign.endTimestamp = campaign.startTimestamp + bound(seed, 1 hours, MAX_TIME_DURATION);
     campaign.metadata = 'metadata';
     vm.prank(operator);
-    campaignId =
-      distributor.createCampaign(campaign.startTimestamp, campaign.endTimestamp, campaign.metadata);
+    campaignId = distributor.createCampaign(
+      campaign.startTimestamp, campaign.endTimestamp, campaign.metadata, bytes32(0)
+    );
   }
 
   function _setUpRewards(

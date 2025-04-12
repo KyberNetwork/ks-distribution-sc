@@ -55,18 +55,18 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function createCampaign(uint256 startTimestamp, uint256 endTimestamp, string calldata metadata)
-    public
-    onlyOperator
-    onlyBefore(startTimestamp)
-    returns (bytes32 campaignId)
-  {
-    require(startTimestamp + MIN_CAMPAIGN_DURATION <= endTimestamp, TooShortDuration());
-    campaignId = keccak256(abi.encode(startTimestamp, endTimestamp, metadata));
+  function createCampaign(
+    uint256 initStartTimestamp,
+    uint256 initEndTimestamp,
+    string calldata initMetadata,
+    bytes32 salt
+  ) public onlyOperator onlyBefore(initStartTimestamp) returns (bytes32 campaignId) {
+    require(initStartTimestamp + MIN_CAMPAIGN_DURATION <= initEndTimestamp, TooShortDuration());
+    campaignId = keccak256(abi.encode(initStartTimestamp, initEndTimestamp, initMetadata, salt));
     require(campaigns[campaignId].startTimestamp == 0, CampaignAlreadyExists(campaignId));
-    campaigns[campaignId] = Campaign(startTimestamp, endTimestamp, metadata);
+    campaigns[campaignId] = Campaign(initStartTimestamp, initEndTimestamp, initMetadata);
 
-    emit CampaignCreated(campaignId, startTimestamp, endTimestamp, metadata);
+    emit CampaignCreated(campaignId, initStartTimestamp, initEndTimestamp, initMetadata);
   }
 
   /// @inheritdoc IKSDistributor
@@ -79,6 +79,42 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     roots[campaignId] = newRoot;
 
     emit RootUpdated(campaignId, oldRoot, newRoot);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function updateStartTimestamp(bytes32 campaignId, uint256 startTimestamp)
+    external
+    override
+    onlyOperator
+  {
+    uint256 oldStartTimestamp = campaigns[campaignId].startTimestamp;
+    campaigns[campaignId].startTimestamp = startTimestamp;
+
+    emit StartTimestampUpdated(campaignId, oldStartTimestamp, startTimestamp);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function updateEndTimestamp(bytes32 campaignId, uint256 endTimestamp)
+    external
+    override
+    onlyOperator
+  {
+    uint256 oldEndTimestamp = campaigns[campaignId].endTimestamp;
+    campaigns[campaignId].startTimestamp = endTimestamp;
+
+    emit EndTimestampUpdated(campaignId, oldEndTimestamp, endTimestamp);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function updateMetadata(bytes32 campaignId, string calldata metadata)
+    external
+    override
+    onlyOperator
+  {
+    string memory oldMetadata = campaigns[campaignId].metadata;
+    campaigns[campaignId].metadata = metadata;
+
+    emit MetadataUpdated(campaignId, oldMetadata, metadata);
   }
 
   /// @inheritdoc IKSDistributor
@@ -190,6 +226,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     claimedAmounts = new uint256[](tokens.length);
     for (uint256 i = 0; i < tokens.length; i++) {
       address token = tokens[i];
+
       uint256 claimable = amounts[i] - claimed[infoHash][token];
       if (claimable > 0) {
         claimed[infoHash][token] += claimable;
