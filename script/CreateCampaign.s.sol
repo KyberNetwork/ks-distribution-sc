@@ -5,22 +5,27 @@ import '../src/KSDistributor.sol';
 import './Base.s.sol';
 
 contract CreateCampaignScript is BaseScript {
-  uint256 startTimestamp = 0;
-  uint256 endTimestamp = 0;
-  string metadata = 'test';
-  bytes32 salt = bytes32(0);
+  using stdJson for string;
 
   bytes32 expectedCampaignId = bytes32(0);
-  bytes32 root = bytes32(0);
 
   function run() external {
-    require(startTimestamp != 0 && endTimestamp != 0, 'Start and end timestamps must be set');
-    require(root != bytes32(0), 'Root must be set');
+    require(expectedCampaignId != bytes32(0), 'expectedCampaignId must be set to a non-zero value');
 
     uint256 chainId;
     assembly {
       chainId := chainid()
     }
+
+    string memory filePath =
+      string.concat('script/output/campaign-', vm.toString(expectedCampaignId), '.json');
+    string memory jsonString = vm.readFile(filePath);
+
+    uint256 startTimestamp = jsonString.readUint('.startTimestamp');
+    uint256 endTimestamp = jsonString.readUint('.endTimestamp');
+    string memory metadata = jsonString.readString('.metadata');
+    bytes32 salt = jsonString.readBytes32('.salt');
+    bytes32 root = jsonString.readBytes32('.root');
 
     address distributor = _readAddress('script/deployedAddresses/distributor.json', chainId);
 

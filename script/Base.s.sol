@@ -38,6 +38,30 @@ contract BaseScript is Script {
     }
   }
 
+  function _readClaimingAmounts(string memory path, uint256 idx)
+    internal
+    view
+    returns (
+      address erc721Addr,
+      uint256 erc721Id,
+      address[] memory tokens,
+      uint256[] memory amounts,
+      bytes32[] memory proofs
+    )
+  {
+    string memory jsonString = vm.readFile(path);
+
+    erc721Addr =
+      jsonString.readAddress(string.concat('.userDatas[', vm.toString(idx), '].leaf.erc721Addr'));
+    erc721Id =
+      jsonString.readUint(string.concat('.userDatas[', vm.toString(idx), '].leaf.erc721Id'));
+    tokens =
+      jsonString.readAddressArray(string.concat('.userDatas[', vm.toString(idx), '].leaf.tokens'));
+    amounts =
+      jsonString.readUintArray(string.concat('.userDatas[', vm.toString(idx), '].leaf.amounts'));
+    proofs = jsonString.readBytes32Array(string.concat('.userDatas[', vm.toString(idx), '].proof'));
+  }
+
   function _writeAddress(string memory path, uint256 chainId, string memory key, address value)
     internal
   {
