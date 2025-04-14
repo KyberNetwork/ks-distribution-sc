@@ -4,8 +4,6 @@ pragma solidity ^0.8.0;
 import 'forge-std/Script.sol';
 import 'forge-std/StdJson.sol';
 
-import 'src/interfaces/IKSDistributor.sol';
-
 contract BaseScript is Script {
   using stdJson for string;
 
@@ -28,11 +26,25 @@ contract BaseScript is Script {
     return json.readAddressArray(string.concat('.', vm.toString(chainId)));
   }
 
-  function _getDistributor() internal view returns (IKSDistributor distributor) {
-    uint256 chainId;
-    assembly {
-      chainId := chainid()
+  function _getJsonString(string memory path, string memory key)
+    internal
+    view
+    returns (string memory)
+  {
+    try vm.readFile(string.concat(path, key, '.json')) returns (string memory json) {
+      return json;
+    } catch {
+      return '{}';
     }
-    distributor = IKSDistributor(_readAddress('script/configs/KSDistributor.json', chainId));
+  }
+
+  function _writeAddress(string memory path, uint256 chainId, string memory key, address value)
+    internal
+  {
+    if (!vm.isContext(VmSafe.ForgeContext.ScriptBroadcast)) {
+      return;
+    }
+    vm.serializeJson(key, _getJsonString(path, key));
+    vm.writeJson(key.serialize(vm.toString(chainId), value), string.concat(path, key, '.json'));
   }
 }

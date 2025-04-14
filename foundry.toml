@@ -4,7 +4,7 @@ optimizer_runs = 44444444
 via_ir = true
 ffi = true
 solc = '0.8.28'
-fs_permissions = [{ access = 'read', path = './'}]
+fs_permissions = [{ access = 'read-write', path = './'}]
 
 [fmt]
 line_length = 100
@@ -15,8 +15,5 @@ sort_imports = true
 
 [rpc_endpoints]
 sepolia = "${RPC_SEPOLIA}"
-
-[etherscan]
-sepolia = { key = "${ETHERSCAN_SEPOLIA_KEY}" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
