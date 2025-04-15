@@ -27,7 +27,7 @@ contract CreateCampaignScript is BaseScript {
     bytes32 salt = jsonString.readBytes32('.salt');
     bytes32 root = jsonString.readBytes32('.root');
 
-    address distributor = _readAddress('script/deployedAddresses/distributor.json', chainId);
+    address distributor = _readAddress('script/configs/distributor.json', chainId);
 
     vm.startBroadcast();
     bytes32 campaignId =

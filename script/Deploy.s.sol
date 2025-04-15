@@ -16,7 +16,7 @@ contract DeployScript is BaseScript {
 
     vm.startBroadcast();
     KSDistributor distributor = new KSDistributor(initialOwner, initialOperators, initialGuardians);
-    _writeAddress('script/distributor.json', chainId, address(distributor));
+    _writeAddress('script/configs/distributor.json', chainId, address(distributor));
     vm.stopBroadcast();
   }
 }
