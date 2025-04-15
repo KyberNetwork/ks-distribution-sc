@@ -26,12 +26,8 @@ contract BaseScript is Script {
     return json.readAddressArray(string.concat('.', vm.toString(chainId)));
   }
 
-  function _getJsonString(string memory path, string memory key)
-    internal
-    view
-    returns (string memory)
-  {
-    try vm.readFile(string.concat(path, key, '.json')) returns (string memory json) {
+  function _getJsonString(string memory path) internal view returns (string memory) {
+    try vm.readFile(path) returns (string memory json) {
       return json;
     } catch {
       return '{}';
@@ -62,13 +58,11 @@ contract BaseScript is Script {
     proofs = jsonString.readBytes32Array(string.concat('.userDatas[', vm.toString(idx), '].proof'));
   }
 
-  function _writeAddress(string memory path, uint256 chainId, string memory key, address value)
-    internal
-  {
+  function _writeAddress(string memory path, uint256 chainId, address value) internal {
     if (!vm.isContext(VmSafe.ForgeContext.ScriptBroadcast)) {
       return;
     }
-    vm.serializeJson(key, _getJsonString(path, key));
-    vm.writeJson(key.serialize(vm.toString(chainId), value), string.concat(path, key, '.json'));
+    vm.serializeJson(path, _getJsonString(path));
+    vm.writeJson(path.serialize(vm.toString(chainId), value), path);
   }
 }
