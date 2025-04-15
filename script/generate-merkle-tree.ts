@@ -49,17 +49,29 @@ campaignsData.forEach((campaign) => {
   const leafHashes = campaign.leaves.map((leaf) => leafHash(campaignId, leaf));
   const tree = SimpleMerkleTree.of(leafHashes);
   let userDatas: { leaf: Leaf; proof: string[] }[] = [];
+  let totalAmounts = {};
   campaign.leaves.forEach((leaf, index) => {
     const proof = tree.getProof(leafHashes[index]);
     userDatas.push({ leaf, proof });
+    leaf.tokens.forEach((token, index) => {
+      if (totalAmounts[token] === undefined) {
+        totalAmounts[token] = 0;
+      }
+      totalAmounts[token] += leaf.amounts[index];
+    });
   });
   fs.writeFileSync(
     "script/output/campaign-" + campaignId + ".json",
     JSON.stringify(
       {
+        startTimestamp: campaign.startTimestamp,
+        endTimestamp: campaign.endTimestamp,
+        metadata: campaign.metadata,
+        salt: campaign.salt,
         userDatas,
         tree: tree.dump().tree,
         root: tree.root,
+        totalAmounts,
       },
       null,
       2

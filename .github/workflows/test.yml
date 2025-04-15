@@ -1,0 +1,36 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+env:
+  ETH_NODE_URL: ${{ secrets.ETH_NODE_URL }}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.0.0
+
+      - name: Build
+        run: |
+          forge --version
+          forge build --sizes --skip Mock Utils test
+        id: build
+
+      - name: Run tests
+        run: forge test -vvv
+        id: test
