@@ -414,10 +414,6 @@ contract KSDistributorTest is Test {
 
     vm.warp(campaign0.startTimestamp);
     vm.prank(account);
-    vm.expectCall(address(distributor), datas[0]);
-    vm.expectCall(address(distributor), datas[1]);
-    vm.expectCall(address(distributor), datas[2]);
-    vm.expectCall(address(distributor), datas[3]);
     distributor.batchClaimRewards(datas);
   }
 

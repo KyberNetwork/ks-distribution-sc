@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import './interfaces/IKSDistributor.sol';
+import './libraries/CalldataDecoder.sol';
 
 import 'ks-growth-utils-sc/KSRescueV2.sol';
 
@@ -145,12 +146,31 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     uint256[] calldata amounts,
     bytes32[] calldata proof,
     address recipient
-  )
-    public
-    onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp)
-    nonReentrant
-    whenNotPaused
-  {
+  ) public nonReentrant whenNotPaused {
+    _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function claimRewardsForAccountWithHook(
+    bytes32 campaignId,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient,
+    address hook,
+    bytes calldata hookData
+  ) public nonReentrant whenNotPaused {
+    _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+    hook.functionCall(hookData);
+  }
+
+  function _claimRewardsForAccount(
+    bytes32 campaignId,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient
+  ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
@@ -176,12 +196,35 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     uint256[] calldata amounts,
     bytes32[] calldata proof,
     address recipient
-  )
-    public
-    onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp)
-    nonReentrant
-    whenNotPaused
-  {
+  ) public nonReentrant whenNotPaused {
+    _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function claimRewardsForERC721WithHook(
+    bytes32 campaignId,
+    address erc721Addr,
+    uint256 erc721Id,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient,
+    address hook,
+    bytes calldata hookData
+  ) public nonReentrant whenNotPaused {
+    _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+    hook.functionCall(hookData);
+  }
+
+  function _claimRewardsForERC721(
+    bytes32 campaignId,
+    address erc721Addr,
+    uint256 erc721Id,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient
+  ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
 
     address msgSender = _msgSender();
@@ -204,15 +247,46 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function batchClaimRewards(bytes[] calldata datas) public {
+  function batchClaimRewards(bytes[] calldata datas) public nonReentrant whenNotPaused {
+    _batchClaimRewards(datas);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function batchClaimRewardsWithHook(bytes[] calldata datas, address hook, bytes calldata hookData)
+    public
+    nonReentrant
+    whenNotPaused
+  {
+    _batchClaimRewards(datas);
+    hook.functionCall(hookData);
+  }
+
+  function _batchClaimRewards(bytes[] calldata datas) internal {
     for (uint256 i = 0; i < datas.length; i++) {
       bytes4 selector = bytes4(datas[i][:4]);
-      require(
-        selector == this.claimRewardsForAccount.selector
-          || selector == this.claimRewardsForERC721.selector,
-        InvalidSelector(selector)
-      );
-      address(this).functionDelegateCall(datas[i]);
+      if (selector == this.claimRewardsForAccount.selector) {
+        (
+          bytes32 campaignId,
+          address[] calldata tokens,
+          uint256[] calldata amounts,
+          bytes32[] calldata proof,
+          address recipient
+        ) = CalldataDecoder.decodeClaimRewardsForAccountData(datas[i][4:]);
+        _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+      } else if (selector == this.claimRewardsForERC721.selector) {
+        (
+          bytes32 campaignId,
+          address erc721Addr,
+          uint256 erc721Id,
+          address[] calldata tokens,
+          uint256[] calldata amounts,
+          bytes32[] calldata proof,
+          address recipient
+        ) = CalldataDecoder.decodeClaimRewardsForERC721Data(datas[i][4:]);
+        _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+      } else {
+        revert InvalidSelector(selector);
+      }
     }
   }
 

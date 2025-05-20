@@ -173,6 +173,26 @@ interface IKSDistributor {
   ) external;
 
   /**
+   * @notice Claims rewards for an account in a campaign with a hook
+   * @param campaignId the unique id of the campaign
+   * @param tokens the addresses of the reward tokens
+   * @param amounts the cumulative amounts of rewards
+   * @param proof the Merkle proof
+   * @param recipient the address of the recipient
+   * @param hook the address of the hook
+   * @param hookData the data to pass to the hook
+   */
+  function claimRewardsForAccountWithHook(
+    bytes32 campaignId,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient,
+    address hook,
+    bytes calldata hookData
+  ) external;
+
+  /**
    * @notice Claims rewards for an ERC721 token in a campaign
    * @param campaignId the unique id of the campaign
    * @param erc721Addr the address of the ERC721 contract
@@ -193,8 +213,41 @@ interface IKSDistributor {
   ) external;
 
   /**
+   * @notice Claims rewards for an ERC721 token in a campaign with a hook
+   * @param campaignId the unique id of the campaign
+   * @param erc721Addr the address of the ERC721 contract
+   * @param erc721Id the campaignId of the ERC721 token
+   * @param tokens the addresses of the reward tokens
+   * @param amounts the cumulative amounts of rewards
+   * @param proof the Merkle proof
+   * @param recipient the address of the recipient
+   * @param hook the address of the hook
+   * @param hookData the data to pass to the hook
+   */
+  function claimRewardsForERC721WithHook(
+    bytes32 campaignId,
+    address erc721Addr,
+    uint256 erc721Id,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient,
+    address hook,
+    bytes calldata hookData
+  ) external;
+
+  /**
    * @notice Claims rewards in a batch
    * @param datas the datas to call in order to claim rewards
    */
   function batchClaimRewards(bytes[] calldata datas) external;
+
+  /**
+   * @notice Claims rewards in a batch with a hook
+   * @param datas the datas to call in order to claim rewards
+   * @param hook the address of the hook
+   * @param hookData the data to pass to the hook
+   */
+  function batchClaimRewardsWithHook(bytes[] calldata datas, address hook, bytes calldata hookData)
+    external;
 }
