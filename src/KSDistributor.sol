@@ -22,8 +22,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   /// @inheritdoc IKSDistributor
   mapping(bytes32 campaignId => bytes32) public roots;
 
-  /// @inheritdoc IKSDistributor
-  mapping(address hook => bool) public override whitelistedHooks;
+  /// @notice Whether a pack value of (hook, hookSelector) is whitelisted
+  mapping(bytes32 => bool) internal whitelistedHooksPacked;
 
   /// @notice The claimed amount for each `infoHash` in each campaign
   mapping(bytes32 infoHash => mapping(address => uint256)) internal claimed;
@@ -122,15 +122,22 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function updateWhitelistedHooks(address[] calldata hooks, bool grantOrRevoke)
-    external
-    override
-    onlyOwner
-  {
-    for (uint256 i = 0; i < hooks.length; i++) {
-      whitelistedHooks[hooks[i]] = grantOrRevoke;
+  function whitelistedHooks(address hook, bytes4 selector) external view override returns (bool) {
+    return whitelistedHooksPacked[keccak256(abi.encode(hook, selector))];
+  }
 
-      emit WhitelistedHookUpdated(hooks[i], grantOrRevoke);
+  /// @inheritdoc IKSDistributor
+  function updateWhitelistedHooks(
+    address[] calldata hooks,
+    bytes4[] calldata selectors,
+    bool grantOrRevoke
+  ) external override onlyOwner {
+    require(hooks.length == selectors.length, InvalidLengths());
+    for (uint256 i = 0; i < hooks.length; i++) {
+      bytes32 packed = keccak256(abi.encode(hooks[i], selectors[i]));
+      whitelistedHooksPacked[packed] = grantOrRevoke;
+
+      emit WhitelistedHookUpdated(hooks[i], selectors[i], grantOrRevoke);
     }
   }
 
@@ -177,7 +184,10 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     bytes calldata hookData
   ) public nonReentrant whenNotPaused {
     _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
-    require(whitelistedHooks[hook], InvalidHook(hook));
+    require(hookData.length >= 4, InvalidHookData(hookData));
+    bytes4 hookSelector = bytes4(hookData[:4]);
+    bytes32 packed = keccak256(abi.encode(hook, bytes4(hookSelector)));
+    require(whitelistedHooksPacked[packed], NotWhitelistedHook(hook, hookSelector));
     hook.functionCall(hookData);
   }
 
@@ -230,7 +240,10 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     bytes calldata hookData
   ) public nonReentrant whenNotPaused {
     _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
-    require(whitelistedHooks[hook], InvalidHook(hook));
+    require(hookData.length >= 4, InvalidHookData(hookData));
+    bytes4 hookSelector = bytes4(hookData[:4]);
+    bytes32 packed = keccak256(abi.encode(hook, bytes4(hookSelector)));
+    require(whitelistedHooksPacked[packed], NotWhitelistedHook(hook, hookSelector));
     hook.functionCall(hookData);
   }
 
@@ -276,7 +289,10 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     whenNotPaused
   {
     _batchClaimRewards(datas);
-    require(whitelistedHooks[hook], InvalidHook(hook));
+    require(hookData.length >= 4, InvalidHookData(hookData));
+    bytes4 hookSelector = bytes4(hookData[:4]);
+    bytes32 packed = keccak256(abi.encode(hook, bytes4(hookSelector)));
+    require(whitelistedHooksPacked[packed], NotWhitelistedHook(hook, hookSelector));
     hook.functionCall(hookData);
   }
 

@@ -21,8 +21,8 @@ interface IKSDistributor {
   /// @notice Emitted when metadata of a campaign is updated
   event MetadataUpdated(bytes32 indexed campaignId, string oldMetadata, string newMetadata);
 
-  /// @notice Emitted when a hook is whitelisted
-  event WhitelistedHookUpdated(address indexed hook, bool grantOrRevoke);
+  /// @notice Emitted when a hook and its selector is whitelisted
+  event WhitelistedHookUpdated(address indexed hook, bytes4 indexed selector, bool grantOrRevoke);
 
   /// @notice Emitted when rewards are claimed for an account
   event RewardsClaimedForAccount(
@@ -68,8 +68,11 @@ interface IKSDistributor {
   /// @notice Thrown when the selector is invalid
   error InvalidSelector(bytes4 selector);
 
-  /// @notice Thrown when the hook is not whitelisted
-  error InvalidHook(address hook);
+  /// @notice Throw when the hookData is invalid
+  error InvalidHookData(bytes hookData);
+
+  /// @notice Thrown when the hook and its selector is not whitelisted
+  error NotWhitelistedHook(address hook, bytes4 selector);
 
   struct Campaign {
     uint256 startTimestamp;
@@ -94,12 +97,6 @@ interface IKSDistributor {
    * @param campaignId the unique id of the campaign
    */
   function roots(bytes32 campaignId) external view returns (bytes32);
-
-  /**
-   * @notice Returns whether a hook is whitelisted
-   * @param hook the address of the hook
-   */
-  function whitelistedHooks(address hook) external view returns (bool);
 
   /**
    * @notice Creates a new campaign
@@ -144,11 +141,23 @@ interface IKSDistributor {
   function updateMetadata(bytes32 campaignId, string calldata metadata) external;
 
   /**
+   * @notice Returns whether a hook and its selector is whitelisted
+   * @param hook the address of the hook
+   * @param selector the selector of the hook
+   */
+  function whitelistedHooks(address hook, bytes4 selector) external view returns (bool);
+
+  /**
    * @notice Grants or revokes a hook whitelisting
    * @param hooks the addresses of the hooks
+   * @param selectors the selectors of the hooks
    * @param grantOrRevoke true to grant, false to revoke
    */
-  function updateWhitelistedHooks(address[] calldata hooks, bool grantOrRevoke) external;
+  function updateWhitelistedHooks(
+    address[] calldata hooks,
+    bytes4[] calldata selectors,
+    bool grantOrRevoke
+  ) external;
 
   /**
    * @notice Returns the claimed amount for an account in a campaign

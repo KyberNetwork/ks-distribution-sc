@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import 'src/KSDistributor.sol';
 
 import {ERC721Mock} from './mocks/ERC721Mock.sol';
+import {SwapMock} from './mocks/SwapMock.sol';
 import './utils/MerkleUtils.sol';
 
 import 'forge-std/Test.sol';
@@ -17,7 +18,9 @@ contract KSDistributorTest is Test {
     INVALID_PROOF,
     TOO_EARLY,
     TOO_LATE,
-    INVALID_LENGTHS
+    INVALID_LENGTHS,
+    NOT_WHITELISTED_HOOK,
+    INVALID_HOOK_DATA
   }
 
   uint256 public constant MAX_CAMPAIGN_SIZE = 20;
@@ -29,6 +32,7 @@ contract KSDistributorTest is Test {
   ERC20Mock public token1;
   ERC721Mock public nft0;
   ERC721Mock public nft1;
+  address swapHook;
 
   address public owner = makeAddr('owner');
   address public operator = makeAddr('operator');
@@ -38,6 +42,7 @@ contract KSDistributorTest is Test {
   function setUp() public {
     vm.warp(1e18);
     _setUpKSDistributor();
+    _setUpHooks();
     _setUpTokens();
     _setUpLabels();
   }
@@ -55,8 +60,8 @@ contract KSDistributorTest is Test {
 
   function testCreateCampaignTooLateShouldRevert() public {
     vm.expectRevert(IKSDistributor.TooLate.selector);
-    uint256 startTimestamp = block.timestamp - 100;
-    uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
+    uint256 startTimestamp = block.timestamp - bound(100, 1 hours, MAX_TIME_DURATION);
+    uint256 endTimestamp = startTimestamp - 100;
     string memory metadata = 'metadata';
     vm.prank(operator);
 
@@ -67,16 +72,6 @@ contract KSDistributorTest is Test {
     vm.expectRevert(IKSDistributor.TooShortDuration.selector);
     uint256 startTimestamp = block.timestamp + bound(0, 100, MAX_TIME_DURATION);
     uint256 endTimestamp = startTimestamp + 0.5 hours;
-    string memory metadata = 'metadata';
-    vm.prank(operator);
-
-    distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
-  }
-
-  function testCreateCampaignExactBlockTimestamp() public {
-    vm.expectRevert(IKSDistributor.TooLate.selector);
-    uint256 startTimestamp = block.timestamp;
-    uint256 endTimestamp = startTimestamp + bound(0, 1 hours, MAX_TIME_DURATION);
     string memory metadata = 'metadata';
     vm.prank(operator);
 
@@ -99,12 +94,12 @@ contract KSDistributorTest is Test {
 
     vm.startPrank(operator);
 
-    bytes32 _campainId =
+    bytes32 _campaignId =
       distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
 
     vm.startPrank(operator);
     vm.expectRevert(
-      abi.encodeWithSelector(IKSDistributor.CampaignAlreadyExists.selector, _campainId)
+      abi.encodeWithSelector(IKSDistributor.CampaignAlreadyExists.selector, _campaignId)
     );
     distributor.createCampaign(startTimestamp, endTimestamp, metadata, bytes32(0));
   }
@@ -195,16 +190,69 @@ contract KSDistributorTest is Test {
     distributor.updateMetadata(campaignId, 'newMetaData');
   }
 
+  function testOnlyOwnerCanUpdateWhitelistedHooks() public {
+    vm.expectRevert(
+      abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, randomCaller)
+    );
+    vm.prank(randomCaller);
+    address[] memory hooks = new address[](1);
+    bytes4[] memory selectors = new bytes4[](1);
+    hooks[0] = makeAddr('hook');
+    distributor.updateWhitelistedHooks(hooks, selectors, true);
+  }
+
+  function testUpdateWhitelistedHooksShouldEmitsEvent(bool grantOrRevoke) public {
+    vm.startPrank(owner);
+    address[] memory hooks = new address[](2);
+    bytes4[] memory selectors = new bytes4[](2);
+    hooks[0] = makeAddr('hook0');
+    hooks[1] = makeAddr('hook1');
+    selectors[0] = SwapMock.swap.selector;
+    selectors[1] = SwapMock.batch.selector;
+    vm.expectEmit(true, false, false, true, address(distributor));
+    emit IKSDistributor.WhitelistedHookUpdated(hooks[0], selectors[0], grantOrRevoke);
+    vm.expectEmit(true, false, false, true, address(distributor));
+    emit IKSDistributor.WhitelistedHookUpdated(hooks[1], selectors[1], grantOrRevoke);
+    distributor.updateWhitelistedHooks(hooks, selectors, grantOrRevoke);
+    for (uint256 i = 0; i < hooks.length; i++) {
+      assertEq(distributor.whitelistedHooks(hooks[i], selectors[i]), grantOrRevoke);
+    }
+  }
+
+  function testClaimWithHook(uint256 seed, uint256 size) public {
+    size = bound(size, 1, MAX_CAMPAIGN_SIZE);
+    uint256 amountSeed = bound(seed, 100, type(uint112).max);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
+    vm.warp(campaign.startTimestamp + 1);
+    _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0, true);
+  }
+
+  function testClaimNotWhitelistedHook(uint256 seed, uint256 size, bool validData) public {
+    size = bound(size, 1, MAX_CAMPAIGN_SIZE);
+    uint256 amountSeed = bound(seed, 100, type(uint112).max);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
+    vm.warp(campaign.startTimestamp + 1);
+    _claimRewardsWithRevert(
+      campaignId,
+      amountSeed,
+      leaves,
+      nft0,
+      validData ? RevertType.NOT_WHITELISTED_HOOK : RevertType.INVALID_HOOK_DATA
+    );
+  }
+
   function testClaimShouldFollowTheMerkleDistribution(uint256 seed, uint256 size) public {
     size = bound(size, 1, MAX_CAMPAIGN_SIZE);
     uint256 amountSeed = bound(seed, 100, type(uint112).max);
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
-    _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0);
+    _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0, false);
     vm.warp(campaign.startTimestamp + 10);
     (leaves,) = _setUpRewards(campaignId, amountSeed * 2, size, nft0);
-    _claimAndVerifyRewards(campaignId, amountSeed * 2, leaves, nft0);
+    _claimAndVerifyRewards(campaignId, amountSeed * 2, leaves, nft0, false);
   }
 
   function testOnlyERC721OwnerCanClaimRewardsForERC721() public {
@@ -235,7 +283,7 @@ contract KSDistributorTest is Test {
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
-    _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0);
+    _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0, false);
     vm.warp(campaign.startTimestamp + 10);
     (leaves,) = _setUpRewards(campaignId, amountSeed / 2, size, nft0);
     _claimRewardsWithRevert(campaignId, amountSeed / 2, leaves, nft0, RevertType.ANY_REASON);
@@ -306,7 +354,7 @@ contract KSDistributorTest is Test {
     }
   }
 
-  function testClaimInvalidCampainIdShouldRevert() public {
+  function testClaimInvalidCampaignIdShouldRevert() public {
     uint256 seed = 1e18;
     uint256 size = 10;
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
@@ -349,7 +397,13 @@ contract KSDistributorTest is Test {
     }
   }
 
-  function testBatchClaim(uint256 seed0, uint256 seed1, uint256 size0, uint256 size1) public {
+  function testBatchClaimWithHook(
+    uint256 seed0,
+    uint256 seed1,
+    uint256 size0,
+    uint256 size1,
+    uint256 seed2
+  ) public {
     vm.assume(seed0 != seed1);
 
     size0 = bound(size0, 2, MAX_CAMPAIGN_SIZE);
@@ -414,7 +468,26 @@ contract KSDistributorTest is Test {
 
     vm.warp(campaign0.startTimestamp);
     vm.prank(account);
-    distributor.batchClaimRewards(datas);
+    if (seed2 % 4 == 0) {
+      distributor.batchClaimRewards(datas);
+    } else if (seed2 % 4 == 1) {
+      distributor.batchClaimRewardsWithHook(
+        datas, swapHook, abi.encodeWithSelector(SwapMock.batch.selector)
+      );
+      assertEq(SwapMock(swapHook).batchExecuted(), true);
+    } else if (seed2 % 4 == 2) {
+      address hook = makeAddr('hook');
+      bytes memory hookData = abi.encodeWithSelector(SwapMock.batch.selector);
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          IKSDistributor.NotWhitelistedHook.selector, hook, SwapMock.batch.selector
+        )
+      );
+      distributor.batchClaimRewardsWithHook(datas, hook, hookData);
+    } else {
+      vm.expectRevert(abi.encodeWithSelector(IKSDistributor.InvalidHookData.selector, ''));
+      distributor.batchClaimRewardsWithHook(datas, address(0), '');
+    }
   }
 
   function testBatchClaimMixedValidAndInvalid(
@@ -586,6 +659,18 @@ contract KSDistributorTest is Test {
     distributor = new KSDistributor(owner, initialOperators, initialGuardians);
   }
 
+  function _setUpHooks() internal {
+    swapHook = address(new SwapMock());
+    address[] memory hooks = new address[](2);
+    bytes4[] memory selectors = new bytes4[](2);
+    hooks[0] = swapHook;
+    hooks[1] = swapHook;
+    selectors[0] = SwapMock.batch.selector;
+    selectors[1] = SwapMock.swap.selector;
+    vm.prank(owner);
+    distributor.updateWhitelistedHooks(hooks, selectors, true);
+  }
+
   function _setUpTokens() internal {
     token0 = new ERC20Mock();
     token1 = new ERC20Mock();
@@ -682,6 +767,25 @@ contract KSDistributorTest is Test {
           vm.expectRevert(IKSDistributor.InvalidLengths.selector);
           distributor.claimRewardsForAccount(campaignId, tokens, new uint256[](3), proof, recipient);
           continue;
+        } else if (revertType == RevertType.NOT_WHITELISTED_HOOK) {
+          address hook = makeAddr('hook');
+          bytes memory hookData = abi.encodeWithSelector(SwapMock.swap.selector, tokens, recipient);
+          vm.expectRevert(
+            abi.encodeWithSelector(
+              IKSDistributor.NotWhitelistedHook.selector, hook, SwapMock.swap.selector
+            )
+          );
+          vm.prank(account);
+          distributor.claimRewardsForAccountWithHook(
+            campaignId, tokens, amounts, proof, recipient, hook, hookData
+          );
+        } else if (revertType == RevertType.INVALID_HOOK_DATA) {
+          address hook = makeAddr('hook');
+          vm.expectRevert(abi.encodeWithSelector(IKSDistributor.InvalidHookData.selector, ''));
+          vm.prank(account);
+          distributor.claimRewardsForAccountWithHook(
+            campaignId, tokens, amounts, proof, recipient, hook, ''
+          );
         } else {
           vm.expectRevert(
             revertType == RevertType.TOO_EARLY
@@ -715,6 +819,25 @@ contract KSDistributorTest is Test {
             campaignId, address(nft), erc721Id, tokens, new uint256[](3), proof, recipient
           );
           continue;
+        } else if (revertType == RevertType.NOT_WHITELISTED_HOOK) {
+          address hook = makeAddr('hook');
+          bytes memory hookData = abi.encodeWithSelector(SwapMock.swap.selector, tokens, recipient);
+          vm.expectRevert(
+            abi.encodeWithSelector(
+              IKSDistributor.NotWhitelistedHook.selector, hook, SwapMock.swap.selector
+            )
+          );
+          vm.prank(account);
+          distributor.claimRewardsForERC721WithHook(
+            campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient, hook, hookData
+          );
+        } else if (revertType == RevertType.INVALID_HOOK_DATA) {
+          address hook = makeAddr('hook');
+          vm.expectRevert(abi.encodeWithSelector(IKSDistributor.InvalidHookData.selector, ''));
+          vm.prank(account);
+          distributor.claimRewardsForERC721WithHook(
+            campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient, hook, ''
+          );
         } else {
           vm.expectRevert(
             revertType == RevertType.TOO_EARLY
@@ -735,7 +858,8 @@ contract KSDistributorTest is Test {
     bytes32 campaignId,
     uint256 amountSeed,
     bytes32[] memory leaves,
-    ERC721Mock nft
+    ERC721Mock nft,
+    bool withHook
   ) internal {
     uint256 size = leaves.length;
 
@@ -750,10 +874,27 @@ contract KSDistributorTest is Test {
           _verifyClaimedAmountsForAccount(campaignId, account, tokens, amounts, recipient);
         vm.prank(account);
         vm.expectEmit(address(distributor));
-        emit IKSDistributor.RewardsClaimedForAccount(
-          campaignId, account, tokens, claimable, recipient
-        );
-        distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+
+        if (withHook) {
+          emit IKSDistributor.RewardsClaimedForAccount(
+            campaignId, account, tokens, claimable, swapHook
+          );
+          distributor.claimRewardsForAccountWithHook(
+            campaignId,
+            tokens,
+            amounts,
+            proof,
+            swapHook,
+            swapHook,
+            abi.encodeWithSelector(SwapMock.swap.selector, tokens, recipient)
+          );
+          assertEq(IERC20(swapHook).balanceOf(recipient), amounts[0]);
+        } else {
+          emit IKSDistributor.RewardsClaimedForAccount(
+            campaignId, account, tokens, claimable, recipient
+          );
+          distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+        }
         _verifyClaimedAmountsForAccount(campaignId, account, tokens, amounts, recipient);
       } else {
         uint256 erc721Id = _getErc721Id(campaignId, i);
@@ -762,12 +903,32 @@ contract KSDistributorTest is Test {
         );
         vm.prank(account);
         vm.expectEmit(address(distributor));
-        emit IKSDistributor.RewardsClaimedForERC721(
-          campaignId, address(nft), erc721Id, account, tokens, claimable, recipient
-        );
-        distributor.claimRewardsForERC721(
-          campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient
-        );
+
+        if (withHook) {
+          emit IKSDistributor.RewardsClaimedForERC721(
+            campaignId, address(nft), erc721Id, account, tokens, claimable, swapHook
+          );
+          distributor.claimRewardsForERC721WithHook(
+            campaignId,
+            address(nft),
+            erc721Id,
+            tokens,
+            amounts,
+            proof,
+            swapHook,
+            swapHook,
+            abi.encodeWithSelector(SwapMock.swap.selector, tokens, recipient)
+          );
+          assertEq(IERC20(swapHook).balanceOf(recipient), amounts[0]);
+        } else {
+          emit IKSDistributor.RewardsClaimedForERC721(
+            campaignId, address(nft), erc721Id, account, tokens, claimable, recipient
+          );
+          distributor.claimRewardsForERC721(
+            campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient
+          );
+        }
+
         _verifyClaimedAmountsForERC721(
           campaignId, address(nft), erc721Id, tokens, amounts, recipient
         );
