@@ -21,6 +21,9 @@ interface IKSDistributor {
   /// @notice Emitted when metadata of a campaign is updated
   event MetadataUpdated(bytes32 indexed campaignId, string oldMetadata, string newMetadata);
 
+  /// @notice Emitted when a hook is whitelisted
+  event WhitelistedHookUpdated(address indexed hook, bool grantOrRevoke);
+
   /// @notice Emitted when rewards are claimed for an account
   event RewardsClaimedForAccount(
     bytes32 indexed campaignId,
@@ -65,6 +68,9 @@ interface IKSDistributor {
   /// @notice Thrown when the selector is invalid
   error InvalidSelector(bytes4 selector);
 
+  /// @notice Thrown when the hook is not whitelisted
+  error InvalidHook(address hook);
+
   struct Campaign {
     uint256 startTimestamp;
     uint256 endTimestamp;
@@ -88,6 +94,12 @@ interface IKSDistributor {
    * @param campaignId the unique id of the campaign
    */
   function roots(bytes32 campaignId) external view returns (bytes32);
+
+  /**
+   * @notice Returns whether a hook is whitelisted
+   * @param hook the address of the hook
+   */
+  function whitelistedHooks(address hook) external view returns (bool);
 
   /**
    * @notice Creates a new campaign
@@ -130,6 +142,13 @@ interface IKSDistributor {
    * @param metadata the new metadata
    */
   function updateMetadata(bytes32 campaignId, string calldata metadata) external;
+
+  /**
+   * @notice Grants or revokes a hook whitelisting
+   * @param hooks the addresses of the hooks
+   * @param grantOrRevoke true to grant, false to revoke
+   */
+  function updateWhitelistedHooks(address[] calldata hooks, bool grantOrRevoke) external;
 
   /**
    * @notice Returns the claimed amount for an account in a campaign

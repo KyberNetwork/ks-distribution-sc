@@ -22,6 +22,9 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   /// @inheritdoc IKSDistributor
   mapping(bytes32 campaignId => bytes32) public roots;
 
+  /// @inheritdoc IKSDistributor
+  mapping(address hook => bool) public override whitelistedHooks;
+
   /// @notice The claimed amount for each `infoHash` in each campaign
   mapping(bytes32 infoHash => mapping(address => uint256)) internal claimed;
 
@@ -61,7 +64,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     uint256 initEndTimestamp,
     string calldata initMetadata,
     bytes32 salt
-  ) public onlyOperator onlyBefore(initStartTimestamp) returns (bytes32 campaignId) {
+  ) public onlyOperator onlyBefore(initEndTimestamp) returns (bytes32 campaignId) {
     require(initStartTimestamp + MIN_CAMPAIGN_DURATION <= initEndTimestamp, TooShortDuration());
     campaignId = keccak256(abi.encode(initStartTimestamp, initEndTimestamp, initMetadata, salt));
     require(campaigns[campaignId].startTimestamp == 0, CampaignAlreadyExists(campaignId));
@@ -119,6 +122,19 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
+  function updateWhitelistedHooks(address[] calldata hooks, bool grantOrRevoke)
+    external
+    override
+    onlyOwner
+  {
+    for (uint256 i = 0; i < hooks.length; i++) {
+      whitelistedHooks[hooks[i]] = grantOrRevoke;
+
+      emit WhitelistedHookUpdated(hooks[i], grantOrRevoke);
+    }
+  }
+
+  /// @inheritdoc IKSDistributor
   function getClaimedAmountForAccount(bytes32 campaignId, address account, address token)
     public
     view
@@ -161,6 +177,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     bytes calldata hookData
   ) public nonReentrant whenNotPaused {
     _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+    require(whitelistedHooks[hook], InvalidHook(hook));
     hook.functionCall(hookData);
   }
 
@@ -213,6 +230,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     bytes calldata hookData
   ) public nonReentrant whenNotPaused {
     _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+    require(whitelistedHooks[hook], InvalidHook(hook));
     hook.functionCall(hookData);
   }
 
@@ -258,6 +276,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     whenNotPaused
   {
     _batchClaimRewards(datas);
+    require(whitelistedHooks[hook], InvalidHook(hook));
     hook.functionCall(hookData);
   }
 
