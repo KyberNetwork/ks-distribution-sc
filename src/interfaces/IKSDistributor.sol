@@ -21,6 +21,9 @@ interface IKSDistributor {
   /// @notice Emitted when metadata of a campaign is updated
   event MetadataUpdated(bytes32 indexed campaignId, string oldMetadata, string newMetadata);
 
+  /// @notice Emitted when a hook and its selector is whitelisted
+  event WhitelistedHookUpdated(address indexed hook, bytes4 indexed selector, bool grantOrRevoke);
+
   /// @notice Emitted when rewards are claimed for an account
   event RewardsClaimedForAccount(
     bytes32 indexed campaignId,
@@ -64,6 +67,12 @@ interface IKSDistributor {
 
   /// @notice Thrown when the selector is invalid
   error InvalidSelector(bytes4 selector);
+
+  /// @notice Throw when the hookData is invalid
+  error InvalidHookData(bytes hookData);
+
+  /// @notice Thrown when the hook and its selector is not whitelisted
+  error NotWhitelistedHook(address hook, bytes4 selector);
 
   struct Campaign {
     uint256 startTimestamp;
@@ -132,6 +141,25 @@ interface IKSDistributor {
   function updateMetadata(bytes32 campaignId, string calldata metadata) external;
 
   /**
+   * @notice Returns whether a hook and its selector is whitelisted
+   * @param hook the address of the hook
+   * @param selector the selector of the hook
+   */
+  function whitelistedHooks(address hook, bytes4 selector) external view returns (bool);
+
+  /**
+   * @notice Grants or revokes a hook whitelisting
+   * @param hooks the addresses of the hooks
+   * @param selectors the selectors of the hooks
+   * @param grantOrRevoke true to grant, false to revoke
+   */
+  function updateWhitelistedHooks(
+    address[] calldata hooks,
+    bytes4[] calldata selectors,
+    bool grantOrRevoke
+  ) external;
+
+  /**
    * @notice Returns the claimed amount for an account in a campaign
    * @param campaignId the unique id of the campaign
    * @param account the address of the account
@@ -173,6 +201,26 @@ interface IKSDistributor {
   ) external;
 
   /**
+   * @notice Claims rewards for an account in a campaign with a hook
+   * @param campaignId the unique id of the campaign
+   * @param tokens the addresses of the reward tokens
+   * @param amounts the cumulative amounts of rewards
+   * @param proof the Merkle proof
+   * @param recipient the address of the recipient
+   * @param hook the address of the hook
+   * @param hookData the data to pass to the hook
+   */
+  function claimRewardsForAccountWithHook(
+    bytes32 campaignId,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient,
+    address hook,
+    bytes calldata hookData
+  ) external;
+
+  /**
    * @notice Claims rewards for an ERC721 token in a campaign
    * @param campaignId the unique id of the campaign
    * @param erc721Addr the address of the ERC721 contract
@@ -193,8 +241,41 @@ interface IKSDistributor {
   ) external;
 
   /**
+   * @notice Claims rewards for an ERC721 token in a campaign with a hook
+   * @param campaignId the unique id of the campaign
+   * @param erc721Addr the address of the ERC721 contract
+   * @param erc721Id the campaignId of the ERC721 token
+   * @param tokens the addresses of the reward tokens
+   * @param amounts the cumulative amounts of rewards
+   * @param proof the Merkle proof
+   * @param recipient the address of the recipient
+   * @param hook the address of the hook
+   * @param hookData the data to pass to the hook
+   */
+  function claimRewardsForERC721WithHook(
+    bytes32 campaignId,
+    address erc721Addr,
+    uint256 erc721Id,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient,
+    address hook,
+    bytes calldata hookData
+  ) external;
+
+  /**
    * @notice Claims rewards in a batch
    * @param datas the datas to call in order to claim rewards
    */
   function batchClaimRewards(bytes[] calldata datas) external;
+
+  /**
+   * @notice Claims rewards in a batch with a hook
+   * @param datas the datas to call in order to claim rewards
+   * @param hook the address of the hook
+   * @param hookData the data to pass to the hook
+   */
+  function batchClaimRewardsWithHook(bytes[] calldata datas, address hook, bytes calldata hookData)
+    external;
 }

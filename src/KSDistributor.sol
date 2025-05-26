@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import './interfaces/IKSDistributor.sol';
+import './libraries/CalldataDecoder.sol';
 
 import 'ks-growth-utils-sc/KSRescueV2.sol';
 
@@ -20,6 +21,9 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
 
   /// @inheritdoc IKSDistributor
   mapping(bytes32 campaignId => bytes32) public roots;
+
+  /// @notice Whether a pack value of (hook, hookSelector) is whitelisted
+  mapping(bytes32 => bool) internal whitelistedHooksPacked;
 
   /// @notice The claimed amount for each `infoHash` in each campaign
   mapping(bytes32 infoHash => mapping(address => uint256)) internal claimed;
@@ -60,7 +64,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     uint256 initEndTimestamp,
     string calldata initMetadata,
     bytes32 salt
-  ) public onlyOperator onlyBefore(initStartTimestamp) returns (bytes32 campaignId) {
+  ) public onlyOperator onlyBefore(initEndTimestamp) returns (bytes32 campaignId) {
     require(initStartTimestamp + MIN_CAMPAIGN_DURATION <= initEndTimestamp, TooShortDuration());
     campaignId = keccak256(abi.encode(initStartTimestamp, initEndTimestamp, initMetadata, salt));
     require(campaigns[campaignId].startTimestamp == 0, CampaignAlreadyExists(campaignId));
@@ -118,6 +122,26 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
+  function whitelistedHooks(address hook, bytes4 selector) external view override returns (bool) {
+    return whitelistedHooksPacked[keccak256(abi.encode(hook, selector))];
+  }
+
+  /// @inheritdoc IKSDistributor
+  function updateWhitelistedHooks(
+    address[] calldata hooks,
+    bytes4[] calldata selectors,
+    bool grantOrRevoke
+  ) external override onlyOwner {
+    require(hooks.length == selectors.length, InvalidLengths());
+    for (uint256 i = 0; i < hooks.length; i++) {
+      bytes32 packed = keccak256(abi.encode(hooks[i], selectors[i]));
+      whitelistedHooksPacked[packed] = grantOrRevoke;
+
+      emit WhitelistedHookUpdated(hooks[i], selectors[i], grantOrRevoke);
+    }
+  }
+
+  /// @inheritdoc IKSDistributor
   function getClaimedAmountForAccount(bytes32 campaignId, address account, address token)
     public
     view
@@ -145,12 +169,31 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     uint256[] calldata amounts,
     bytes32[] calldata proof,
     address recipient
-  )
-    public
-    onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp)
-    nonReentrant
-    whenNotPaused
-  {
+  ) public nonReentrant whenNotPaused {
+    _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function claimRewardsForAccountWithHook(
+    bytes32 campaignId,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient,
+    address hook,
+    bytes calldata hookData
+  ) public nonReentrant whenNotPaused {
+    _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+    _callHook(hook, hookData);
+  }
+
+  function _claimRewardsForAccount(
+    bytes32 campaignId,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient
+  ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
@@ -176,12 +219,35 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     uint256[] calldata amounts,
     bytes32[] calldata proof,
     address recipient
-  )
-    public
-    onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp)
-    nonReentrant
-    whenNotPaused
-  {
+  ) public nonReentrant whenNotPaused {
+    _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function claimRewardsForERC721WithHook(
+    bytes32 campaignId,
+    address erc721Addr,
+    uint256 erc721Id,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient,
+    address hook,
+    bytes calldata hookData
+  ) public nonReentrant whenNotPaused {
+    _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+    _callHook(hook, hookData);
+  }
+
+  function _claimRewardsForERC721(
+    bytes32 campaignId,
+    address erc721Addr,
+    uint256 erc721Id,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    bytes32[] calldata proof,
+    address recipient
+  ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
 
     address msgSender = _msgSender();
@@ -204,16 +270,55 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function batchClaimRewards(bytes[] calldata datas) public {
+  function batchClaimRewards(bytes[] calldata datas) public nonReentrant whenNotPaused {
+    _batchClaimRewards(datas);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function batchClaimRewardsWithHook(bytes[] calldata datas, address hook, bytes calldata hookData)
+    public
+    nonReentrant
+    whenNotPaused
+  {
+    _batchClaimRewards(datas);
+    _callHook(hook, hookData);
+  }
+
+  function _batchClaimRewards(bytes[] calldata datas) internal {
     for (uint256 i = 0; i < datas.length; i++) {
       bytes4 selector = bytes4(datas[i][:4]);
-      require(
-        selector == this.claimRewardsForAccount.selector
-          || selector == this.claimRewardsForERC721.selector,
-        InvalidSelector(selector)
-      );
-      address(this).functionDelegateCall(datas[i]);
+      if (selector == this.claimRewardsForAccount.selector) {
+        (
+          bytes32 campaignId,
+          address[] calldata tokens,
+          uint256[] calldata amounts,
+          bytes32[] calldata proof,
+          address recipient
+        ) = CalldataDecoder.decodeClaimRewardsForAccountData(datas[i][4:]);
+        _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+      } else if (selector == this.claimRewardsForERC721.selector) {
+        (
+          bytes32 campaignId,
+          address erc721Addr,
+          uint256 erc721Id,
+          address[] calldata tokens,
+          uint256[] calldata amounts,
+          bytes32[] calldata proof,
+          address recipient
+        ) = CalldataDecoder.decodeClaimRewardsForERC721Data(datas[i][4:]);
+        _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+      } else {
+        revert InvalidSelector(selector);
+      }
     }
+  }
+
+  function _callHook(address hook, bytes calldata hookData) internal {
+    require(hookData.length >= 4, InvalidHookData(hookData));
+    bytes4 hookSelector = bytes4(hookData[:4]);
+    bytes32 packed = keccak256(abi.encode(hook, bytes4(hookSelector)));
+    require(whitelistedHooksPacked[packed], NotWhitelistedHook(hook, hookSelector));
+    hook.functionCall(hookData);
   }
 
   /// @notice Transfers the rewards to the recipient
