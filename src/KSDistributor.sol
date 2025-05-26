@@ -184,11 +184,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     bytes calldata hookData
   ) public nonReentrant whenNotPaused {
     _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
-    require(hookData.length >= 4, InvalidHookData(hookData));
-    bytes4 hookSelector = bytes4(hookData[:4]);
-    bytes32 packed = keccak256(abi.encode(hook, bytes4(hookSelector)));
-    require(whitelistedHooksPacked[packed], NotWhitelistedHook(hook, hookSelector));
-    hook.functionCall(hookData);
+    _callHook(hook, hookData);
   }
 
   function _claimRewardsForAccount(
@@ -240,11 +236,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     bytes calldata hookData
   ) public nonReentrant whenNotPaused {
     _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
-    require(hookData.length >= 4, InvalidHookData(hookData));
-    bytes4 hookSelector = bytes4(hookData[:4]);
-    bytes32 packed = keccak256(abi.encode(hook, bytes4(hookSelector)));
-    require(whitelistedHooksPacked[packed], NotWhitelistedHook(hook, hookSelector));
-    hook.functionCall(hookData);
+    _callHook(hook, hookData);
   }
 
   function _claimRewardsForERC721(
@@ -289,11 +281,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     whenNotPaused
   {
     _batchClaimRewards(datas);
-    require(hookData.length >= 4, InvalidHookData(hookData));
-    bytes4 hookSelector = bytes4(hookData[:4]);
-    bytes32 packed = keccak256(abi.encode(hook, bytes4(hookSelector)));
-    require(whitelistedHooksPacked[packed], NotWhitelistedHook(hook, hookSelector));
-    hook.functionCall(hookData);
+    _callHook(hook, hookData);
   }
 
   function _batchClaimRewards(bytes[] calldata datas) internal {
@@ -323,6 +311,14 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
         revert InvalidSelector(selector);
       }
     }
+  }
+
+  function _callHook(address hook, bytes calldata hookData) internal {
+    require(hookData.length >= 4, InvalidHookData(hookData));
+    bytes4 hookSelector = bytes4(hookData[:4]);
+    bytes32 packed = keccak256(abi.encode(hook, bytes4(hookSelector)));
+    require(whitelistedHooksPacked[packed], NotWhitelistedHook(hook, hookSelector));
+    hook.functionCall(hookData);
   }
 
   /// @notice Transfers the rewards to the recipient
