@@ -1,7 +1,7 @@
 {
     "campaignsData": [
         {
-            "campaignId": "0x7933ece9d76130268ce08bb77c72a28e387af37cd8647a321b8e2fded9197887",
+            "campaignId": "0x0000000000000000000000000000000000000000000000000000000000000000",
             "startTimestamp": "1000000000000000100",
             "endTimestamp": "1000000000000007200",
             "metadata": "metadata",

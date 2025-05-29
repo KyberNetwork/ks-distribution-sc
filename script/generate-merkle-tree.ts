@@ -39,12 +39,18 @@ function leafHash(campaignId: string, leaf: Leaf): HexString {
 }
 
 campaignsData.forEach((campaign) => {
-  const campaignId = keccak256(
-    encode(
-      ["uint256", "uint256", "string", "bytes32"],
-      [campaign.startTimestamp, campaign.endTimestamp, campaign.metadata, campaign.salt]
+  let campaignIdBN = BigNumber.from(campaign.campaignId);
+  let campaignId: string;
+  if (campaignIdBN.isZero()) {
+    campaignId = keccak256(
+      encode(
+        ["uint256", "uint256", "string", "bytes32"],
+        [campaign.startTimestamp, campaign.endTimestamp, campaign.metadata, campaign.salt]
+      )
     )
-  );
+  } else {
+    campaignId = campaignIdBN.toHexString();
+  }
   console.log("Generating Merkle tree for campaign", campaignId);
   console.log("Number of leaves:", campaign.leaves.length);
   const leafHashes = campaign.leaves.map((leaf) => leafHash(campaignId, leaf));
