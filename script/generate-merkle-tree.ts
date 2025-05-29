@@ -4,13 +4,14 @@ import { keccak256 } from "@openzeppelin/merkle-tree/dist/hashes";
 import { encode } from "@metamask/abi-utils";
 import { campaignsData } from "./input/campaigns-data.json";
 import * as fs from "node:fs";
+import { BigNumber } from "ethers";
 
 interface Leaf {
   account?: string;
   erc721Addr?: string;
   erc721Id?: string;
   tokens: string[];
-  amounts: number[];
+  amounts: string[];
   [key: string]: any;
 }
 
@@ -49,17 +50,21 @@ campaignsData.forEach((campaign) => {
   const leafHashes = campaign.leaves.map((leaf) => leafHash(campaignId, leaf));
   const tree = SimpleMerkleTree.of(leafHashes);
   let userDatas: { leaf: Leaf; proof: string[] }[] = [];
-  let totalAmounts = {};
+  let totalAmounts: { [key: string]: string } = {};
   campaign.leaves.forEach((leaf, index) => {
     const proof = tree.getProof(leafHashes[index]);
     userDatas.push({ leaf, proof });
     leaf.tokens.forEach((token, index) => {
       if (totalAmounts[token] === undefined) {
-        totalAmounts[token] = 0;
+        totalAmounts[token] = "0";
       }
-      totalAmounts[token] += leaf.amounts[index];
+      // Safely add using string manipulation to avoid BigNumber overflow
+      const currentBN = BigNumber.from(totalAmounts[token]);
+      const amountBN = BigNumber.from(leaf.amounts[index]);
+      totalAmounts[token] = currentBN.add(amountBN).toString();
     });
   });
+
   fs.writeFileSync(
     "script/output/campaign-" + campaignId + ".json",
     JSON.stringify(
