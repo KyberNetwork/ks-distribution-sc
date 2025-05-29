@@ -107,7 +107,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
         && effectiveTimestamp < campaigns[campaignId].endTimestamp,
       InvalidEffectiveTimestamp()
     );
-    _checkLatestRoot(campaignId);
+    _checkPendingRoot(campaignId);
     pendingRoots[campaignId] = PendingRoot(newRoot, effectiveTimestamp);
 
     emit RootSubmitted(campaignId, newRoot, effectiveTimestamp);
@@ -115,7 +115,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
 
   /// @inheritdoc IKSDistributor
   function forceUpdateRoot(bytes32 campaignId, bytes32 newRoot) public onlyOwner {
-    _updateRoot(campaignId, newRoot);
+    _applyRoot(campaignId, newRoot);
   }
 
   /// @inheritdoc IKSDistributor
@@ -216,7 +216,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     address recipient
   ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
-    _checkLatestRoot(campaignId);
+    _checkPendingRoot(campaignId);
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
     require(
@@ -271,7 +271,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     address recipient
   ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
-    _checkLatestRoot(campaignId);
+    _checkPendingRoot(campaignId);
 
     address msgSender = _msgSender();
     require(msgSender == IERC721(erc721Addr).ownerOf(erc721Id), UnauthorizedClaimant(msgSender));
@@ -307,16 +307,16 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     _callHook(hook, hookData);
   }
 
-  function _checkLatestRoot(bytes32 campaignId) internal {
+  function _checkPendingRoot(bytes32 campaignId) internal {
     bytes32 pendingRoot = pendingRoots[campaignId].root;
     if (pendingRoot != bytes32(0)) {
       if (pendingRoots[campaignId].effectiveTimestamp <= block.timestamp) {
-        _updateRoot(campaignId, pendingRoot);
+        _applyRoot(campaignId, pendingRoot);
       }
     }
   }
 
-  function _updateRoot(bytes32 campaignId, bytes32 newRoot) internal {
+  function _applyRoot(bytes32 campaignId, bytes32 newRoot) internal {
     bytes32 oldRoot = roots[campaignId];
     roots[campaignId] = newRoot;
     delete pendingRoots[campaignId];
