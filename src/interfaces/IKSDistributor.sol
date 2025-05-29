@@ -9,8 +9,14 @@ interface IKSDistributor {
     bytes32 indexed campaignId, uint256 startTimestamp, uint256 endTimestamp, string metadata
   );
 
-  /// @notice Emitted when the Merkle root of a campaign is updated
-  event RootUpdated(bytes32 indexed campaignId, bytes32 oldRoot, bytes32 newRoot);
+  /// @notice Emitted when the Merkle root of a campaign is applied
+  event RootApplied(bytes32 indexed campaignId, bytes32 oldRoot, bytes32 newRoot);
+
+  /// @notice Emitted when a pending Merkle root of a campaign is submitted
+  event RootSubmitted(bytes32 indexed campaignId, bytes32 pendingRoot, uint256 effectiveTimestamp);
+
+  /// @notice Emitted when the default time lock is updated
+  event DefaultTimeLockUpdated(uint256 oldTime, uint256 newTime);
 
   /// @notice Emitted when startTimestamp of a campaign is updated
   event StartTimestampUpdated(bytes32 indexed campaignId, uint256 oldTime, uint256 newTime);
@@ -50,6 +56,9 @@ interface IKSDistributor {
   /// @notice Thrown when a campaign already exists
   error CampaignAlreadyExists(bytes32 campaignId);
 
+  /// @notice Thrown when the pending root effective timestamp is invalid
+  error InvalidEffectiveTimestamp();
+
   /// @notice Thrown when the campaign has not started yet
   error TooEarly();
 
@@ -80,6 +89,16 @@ interface IKSDistributor {
     string metadata;
   }
 
+  struct PendingRoot {
+    bytes32 root;
+    uint256 effectiveTimestamp;
+  }
+
+  /**
+   * @notice Returns the default time lock for the campaign
+   */
+  function defaultTimeLock() external view returns (uint256);
+
   /**
    * @notice Returns the information of a campaign
    * @param campaignId the unique id of the campaign
@@ -99,6 +118,23 @@ interface IKSDistributor {
   function roots(bytes32 campaignId) external view returns (bytes32);
 
   /**
+   * @notice Returns the pending Merkle root of a campaign
+   * @param campaignId the unique id of the campaign
+   * @return root the pending Merkle root
+   * @return effectiveTimestamp the timestamp when the pending root will be effective
+   */
+  function pendingRoots(bytes32 campaignId)
+    external
+    view
+    returns (bytes32 root, uint256 effectiveTimestamp);
+
+  /**
+   * @notice Updates the default time lock for the campaign
+   * @param newTimeLock the new default time lock in seconds
+   */
+  function updateDefaultTimeLock(uint256 newTimeLock) external;
+
+  /**
    * @notice Creates a new campaign
    * @param startTimestamp the start timestamp of the campaign
    * @param endTimestamp the end timestamp of the campaign
@@ -113,11 +149,19 @@ interface IKSDistributor {
   ) external returns (bytes32 campaignId);
 
   /**
-   * @notice Updates the Merkle root of a campaign
+   * @notice Submit the Merkle root of a campaign
+   * @param campaignId the unique id of the campaign
+   * @param newRoot the new Merkle root
+   * @param effectiveTimestamp the timestamp when the new root will be effective
+   */
+  function submitRoot(bytes32 campaignId, bytes32 newRoot, uint256 effectiveTimestamp) external;
+
+  /**
+   * @notice Force apply the Merkle root of a campaign
    * @param campaignId the unique id of the campaign
    * @param newRoot the new Merkle root
    */
-  function updateRoot(bytes32 campaignId, bytes32 newRoot) external;
+  function forceUpdateRoot(bytes32 campaignId, bytes32 newRoot) external;
 
   /**
    * @notice Updates startTimestamp of a campaign
