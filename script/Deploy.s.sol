@@ -15,7 +15,8 @@ contract DeployScript is BaseScript {
     address[] memory initialGuardians = _readAddressArray('script/configs/guardians.json', chainId);
 
     vm.startBroadcast();
-    KSDistributor distributor = new KSDistributor(initialOwner, initialOperators, initialGuardians);
+    KSDistributor distributor =
+      new KSDistributor(initialOwner, initialOperators, initialGuardians, 1 days);
     _writeAddress('script/configs/distributor.json', chainId, address(distributor));
     vm.stopBroadcast();
   }

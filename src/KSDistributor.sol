@@ -17,10 +17,16 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   uint256 public constant MIN_CAMPAIGN_DURATION = 1 hours;
 
   /// @inheritdoc IKSDistributor
+  uint256 public defaultTimeLock;
+
+  /// @inheritdoc IKSDistributor
   mapping(bytes32 campaignId => Campaign) public campaigns;
 
   /// @inheritdoc IKSDistributor
   mapping(bytes32 campaignId => bytes32) public roots;
+
+  /// @inheritdoc IKSDistributor
+  mapping(bytes32 campaignId => PendingRoot) public pendingRoots;
 
   /// @notice Whether a pack value of (hook, hookSelector) is whitelisted
   mapping(bytes32 => bool) internal whitelistedHooksPacked;
@@ -44,7 +50,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   constructor(
     address initialOwner,
     address[] memory initialOperators,
-    address[] memory initialGuardians
+    address[] memory initialGuardians,
+    uint256 initDefaultTimeLock
   ) Ownable(initialOwner) {
     for (uint256 i = 0; i < initialOperators.length; i++) {
       operators[initialOperators[i]] = true;
@@ -56,6 +63,20 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
 
       emit UpdateGuardian(initialGuardians[i], true);
     }
+
+    _updateDefaultTimeLock(initDefaultTimeLock);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function updateDefaultTimeLock(uint256 newDefaultTimeLock) public onlyOwner {
+    _updateDefaultTimeLock(newDefaultTimeLock);
+  }
+
+  function _updateDefaultTimeLock(uint256 newDefaultTimeLock) internal {
+    uint256 oldDefaultTimeLock = defaultTimeLock;
+    defaultTimeLock = newDefaultTimeLock;
+
+    emit DefaultTimeLockUpdated(oldDefaultTimeLock, newDefaultTimeLock);
   }
 
   /// @inheritdoc IKSDistributor
@@ -74,23 +95,31 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function updateRoot(bytes32 campaignId, bytes32 newRoot)
+  function submitRoot(bytes32 campaignId, bytes32 newRoot, uint256 effectiveTimestamp)
     public
     onlyOperator
-    onlyBefore(campaigns[campaignId].endTimestamp)
   {
-    bytes32 oldRoot = roots[campaignId];
-    roots[campaignId] = newRoot;
+    if (effectiveTimestamp == 0) {
+      effectiveTimestamp = block.timestamp + defaultTimeLock;
+    }
+    require(
+      effectiveTimestamp >= block.timestamp + defaultTimeLock
+        && effectiveTimestamp < campaigns[campaignId].endTimestamp,
+      InvalidEffectiveTimestamp()
+    );
+    _checkPendingRoot(campaignId);
+    pendingRoots[campaignId] = PendingRoot(newRoot, effectiveTimestamp);
 
-    emit RootUpdated(campaignId, oldRoot, newRoot);
+    emit RootSubmitted(campaignId, newRoot, effectiveTimestamp);
   }
 
   /// @inheritdoc IKSDistributor
-  function updateStartTimestamp(bytes32 campaignId, uint256 startTimestamp)
-    external
-    override
-    onlyOperator
-  {
+  function forceUpdateRoot(bytes32 campaignId, bytes32 newRoot) public onlyOwner {
+    _applyRoot(campaignId, newRoot);
+  }
+
+  /// @inheritdoc IKSDistributor
+  function updateStartTimestamp(bytes32 campaignId, uint256 startTimestamp) public onlyOperator {
     uint256 oldStartTimestamp = campaigns[campaignId].startTimestamp;
     campaigns[campaignId].startTimestamp = startTimestamp;
 
@@ -98,11 +127,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function updateEndTimestamp(bytes32 campaignId, uint256 endTimestamp)
-    external
-    override
-    onlyOperator
-  {
+  function updateEndTimestamp(bytes32 campaignId, uint256 endTimestamp) public onlyOperator {
     uint256 oldEndTimestamp = campaigns[campaignId].endTimestamp;
     campaigns[campaignId].startTimestamp = endTimestamp;
 
@@ -110,11 +135,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function updateMetadata(bytes32 campaignId, string calldata metadata)
-    external
-    override
-    onlyOperator
-  {
+  function updateMetadata(bytes32 campaignId, string calldata metadata) public onlyOperator {
     string memory oldMetadata = campaigns[campaignId].metadata;
     campaigns[campaignId].metadata = metadata;
 
@@ -122,7 +143,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function whitelistedHooks(address hook, bytes4 selector) external view override returns (bool) {
+  function whitelistedHooks(address hook, bytes4 selector) public view returns (bool) {
     return whitelistedHooksPacked[keccak256(abi.encode(hook, selector))];
   }
 
@@ -131,7 +152,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     address[] calldata hooks,
     bytes4[] calldata selectors,
     bool grantOrRevoke
-  ) external override onlyOwner {
+  ) public onlyOwner {
     require(hooks.length == selectors.length, InvalidLengths());
     for (uint256 i = 0; i < hooks.length; i++) {
       bytes32 packed = keccak256(abi.encode(hooks[i], selectors[i]));
@@ -195,6 +216,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     address recipient
   ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
+    _checkPendingRoot(campaignId);
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
     require(
@@ -249,6 +271,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     address recipient
   ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
+    _checkPendingRoot(campaignId);
 
     address msgSender = _msgSender();
     require(msgSender == IERC721(erc721Addr).ownerOf(erc721Id), UnauthorizedClaimant(msgSender));
@@ -282,6 +305,23 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   {
     _batchClaimRewards(datas);
     _callHook(hook, hookData);
+  }
+
+  function _checkPendingRoot(bytes32 campaignId) internal {
+    bytes32 pendingRoot = pendingRoots[campaignId].root;
+    if (pendingRoot != bytes32(0)) {
+      if (pendingRoots[campaignId].effectiveTimestamp <= block.timestamp) {
+        _applyRoot(campaignId, pendingRoot);
+      }
+    }
+  }
+
+  function _applyRoot(bytes32 campaignId, bytes32 newRoot) internal {
+    bytes32 oldRoot = roots[campaignId];
+    roots[campaignId] = newRoot;
+    delete pendingRoots[campaignId];
+
+    emit RootApplied(campaignId, oldRoot, newRoot);
   }
 
   function _batchClaimRewards(bytes[] calldata datas) internal {

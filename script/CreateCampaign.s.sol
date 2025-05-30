@@ -8,6 +8,7 @@ contract CreateCampaignScript is BaseScript {
   using stdJson for string;
 
   bytes32 expectedCampaignId = bytes32(0);
+  uint256 effectiveTimestamp = 0;
 
   function run() external {
     require(expectedCampaignId != bytes32(0), 'expectedCampaignId must be set to a non-zero value');
@@ -35,11 +36,13 @@ contract CreateCampaignScript is BaseScript {
     console.log('Campaign %s created with:', vm.toString(campaignId));
     require(campaignId == expectedCampaignId, 'Campaign ID does not match the expected value');
 
-    KSDistributor(distributor).updateRoot(campaignId, root);
+    KSDistributor(distributor).submitRoot(campaignId, root, effectiveTimestamp);
     vm.stopBroadcast();
 
     console.log('Start timestamp:', startTimestamp);
     console.log('End timestamp:', endTimestamp);
     console.log('Metadata:', metadata);
+
+    console.log('Root:', vm.toString(root));
   }
 }

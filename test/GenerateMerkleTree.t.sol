@@ -49,9 +49,10 @@ contract GenerateMerkleTreeTest is Test {
         vm.readFile(string.concat('script/output/campaign-', vm.toString(campaignId), '.json'));
       bytes32 root = outputjson.readBytes32('.root');
       vm.prank(operator);
-      distributor.updateRoot(campaignId, root);
+      vm.warp(startTimestamp);
+      distributor.submitRoot(campaignId, root, 0);
+      vm.warp(startTimestamp + distributor.defaultTimeLock());
 
-      vm.warp(startTimestamp + 1);
       for (uint256 j = 0;; j++) {
         address[] memory tokens = outputjson.readAddressArrayOr(
           string.concat('.userDatas[', vm.toString(j), '].leaf.tokens'), new address[](0)
@@ -112,6 +113,6 @@ contract GenerateMerkleTreeTest is Test {
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
-    distributor = new KSDistributor(owner, initialOperators, initialGuardians);
+    distributor = new KSDistributor(owner, initialOperators, initialGuardians, 1 hours);
   }
 }

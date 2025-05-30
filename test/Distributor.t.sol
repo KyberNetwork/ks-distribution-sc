@@ -8,6 +8,7 @@ import {SwapMock} from './mocks/SwapMock.sol';
 import './utils/MerkleUtils.sol';
 
 import 'forge-std/Test.sol';
+import 'forge-std/console.sol';
 import {ERC20Mock} from 'openzeppelin-contracts/mocks/token/ERC20Mock.sol';
 
 contract KSDistributorTest is Test {
@@ -110,39 +111,41 @@ contract KSDistributorTest is Test {
     _createCampaign(100);
   }
 
-  function testUpdateRootForNonExistentCampaignShouldRevert() public {
+  function testSubmitRootForNonExistentCampaignShouldRevert() public {
     vm.expectRevert();
     vm.prank(operator);
-    distributor.updateRoot(0, 0);
+    distributor.submitRoot(0, 0, 0);
   }
 
-  function testOnlyOperatorCanUpdateRoot() public {
+  function testOnlyOperatorCanSubmitRoot() public {
     (bytes32 campaignId,) = _createCampaign(100);
     vm.expectPartialRevert(KyberSwapRole.KSRoleNotOperator.selector);
     vm.prank(randomCaller);
-    distributor.updateRoot(campaignId, 0);
+    distributor.submitRoot(campaignId, 0, 0);
   }
 
-  function testUpdateRootTooLateShouldRevert() public {
+  function testSubmitRootTooLateShouldRevert() public {
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(100);
-    vm.expectRevert(IKSDistributor.TooLate.selector);
-    vm.warp(campaign.endTimestamp + 1);
+    vm.warp(campaign.endTimestamp - distributor.defaultTimeLock());
+    vm.expectRevert(IKSDistributor.InvalidEffectiveTimestamp.selector);
     vm.prank(operator);
-    distributor.updateRoot(campaignId, 0);
+    distributor.submitRoot(campaignId, 0, 0);
   }
 
-  function testUpdateRootShouldEmitsEvent() public {
-    (bytes32 campaignId,) = _createCampaign(100);
+  function testSubmitRootShouldEmitsEvent() public {
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(100);
     vm.startPrank(operator);
     (, bytes32 root) = _setUpRewards(campaignId, 1000 ether, 10, nft0, false);
     vm.expectEmit(address(distributor));
-    emit IKSDistributor.RootUpdated(campaignId, 0, root);
-    distributor.updateRoot(campaignId, root);
+    emit IKSDistributor.RootSubmitted(
+      campaignId, root, block.timestamp + distributor.defaultTimeLock()
+    );
+    distributor.submitRoot(campaignId, root, 0);
 
     (, bytes32 newRoot) = _setUpRewards(campaignId, 2000 ether, 10, nft0, false);
     vm.expectEmit(address(distributor));
-    emit IKSDistributor.RootUpdated(campaignId, root, newRoot);
-    distributor.updateRoot(campaignId, newRoot);
+    emit IKSDistributor.RootSubmitted(campaignId, newRoot, campaign.endTimestamp - 1);
+    distributor.submitRoot(campaignId, newRoot, campaign.endTimestamp - 1);
   }
 
   function testOnlyOperatorCanUpdateStartTimestamp() public {
@@ -224,7 +227,7 @@ contract KSDistributorTest is Test {
     uint256 amountSeed = bound(seed, 100, type(uint112).max);
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
-    vm.warp(campaign.startTimestamp + 1);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock());
     _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0, true);
   }
 
@@ -233,7 +236,7 @@ contract KSDistributorTest is Test {
     uint256 amountSeed = bound(seed, 100, type(uint112).max);
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
-    vm.warp(campaign.startTimestamp + 1);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock());
     _claimRewardsWithRevert(
       campaignId,
       amountSeed,
@@ -248,10 +251,11 @@ contract KSDistributorTest is Test {
     uint256 amountSeed = bound(seed, 100, type(uint112).max);
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
-    vm.warp(campaign.startTimestamp + 1);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock() + 1);
     _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0, false);
-    vm.warp(campaign.startTimestamp + 10);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock() + 10);
     (leaves,) = _setUpRewards(campaignId, amountSeed * 2, size, nft0);
+    vm.warp(block.timestamp + distributor.defaultTimeLock());
     _claimAndVerifyRewards(campaignId, amountSeed * 2, leaves, nft0, false);
   }
 
@@ -282,10 +286,11 @@ contract KSDistributorTest is Test {
     uint256 amountSeed = bound(seed, 100, type(uint112).max);
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
-    vm.warp(campaign.startTimestamp + 1);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock() + 1);
     _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0, false);
-    vm.warp(campaign.startTimestamp + 10);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock() + 10);
     (leaves,) = _setUpRewards(campaignId, amountSeed / 2, size, nft0);
+    vm.warp(block.timestamp + distributor.defaultTimeLock());
     _claimRewardsWithRevert(campaignId, amountSeed / 2, leaves, nft0, RevertType.ANY_REASON);
   }
 
@@ -361,6 +366,35 @@ contract KSDistributorTest is Test {
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, seed, size, nft0);
     vm.warp(campaign.startTimestamp + 1);
     _claimRewardsWithRevert('', seed, leaves, nft0, RevertType.TOO_LATE);
+  }
+
+  function testClaimHaveYetToEffectShouldRevert(uint256 seed, uint256 size) public {
+    size = bound(size, 1, MAX_CAMPAIGN_SIZE);
+    uint256 amountSeed = bound(seed, 100, type(uint112).max);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock() + 1);
+    _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0, false);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock() + 10);
+    (leaves,) = _setUpRewards(campaignId, amountSeed * 2, size, nft0);
+    vm.warp(block.timestamp + 1);
+    _claimRewardsWithRevert(campaignId, amountSeed * 2, leaves, nft0, RevertType.ANY_REASON);
+  }
+
+  function testClaimPendingRootCanceledShouldRevert(uint256 seed, uint256 size) public {
+    size = bound(size, 1, MAX_CAMPAIGN_SIZE);
+    uint256 amountSeed = bound(seed, 100, type(uint112).max);
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
+    (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock() + 1);
+    _claimAndVerifyRewards(campaignId, amountSeed, leaves, nft0, false);
+    vm.warp(campaign.startTimestamp + distributor.defaultTimeLock() + 10);
+
+    (leaves,) = _setUpRewards(campaignId, amountSeed * 2, size, nft0);
+    vm.warp(block.timestamp + distributor.defaultTimeLock());
+    vm.prank(owner);
+    distributor.forceUpdateRoot(campaignId, bytes32(0));
+    _claimRewardsWithRevert(campaignId, amountSeed * 2, leaves, nft0, RevertType.ANY_REASON);
   }
 
   function testClaimWithERC721OwnerChanged() public {
@@ -466,7 +500,7 @@ contract KSDistributorTest is Test {
       );
     }
 
-    vm.warp(campaign0.startTimestamp);
+    vm.warp(campaign0.startTimestamp + distributor.defaultTimeLock());
     vm.prank(account);
     if (seed2 % 4 == 0) {
       distributor.batchClaimRewards(datas);
@@ -574,9 +608,10 @@ contract KSDistributorTest is Test {
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
     (bytes32[] memory leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
 
-    uint256 latestTime = campaign.startTimestamp;
+    uint256 latestTime = campaign.startTimestamp + distributor.defaultTimeLock() + 1;
     for (uint256 i = 0; i < size; i++) {
-      latestTime = bound(seed, latestTime, campaign.endTimestamp - 1);
+      latestTime =
+        bound(seed, latestTime, campaign.endTimestamp - distributor.defaultTimeLock() - 1);
       vm.warp(latestTime);
 
       address account = vm.addr(i + 1);
@@ -603,6 +638,7 @@ contract KSDistributorTest is Test {
     //update root for another distribution
     amountSeed = amountSeed * 2;
     (leaves,) = _setUpRewards(campaignId, amountSeed, size, nft0);
+    latestTime += distributor.defaultTimeLock();
 
     for (uint256 i = 0; i < size; i++) {
       latestTime = bound(seed, latestTime, campaign.endTimestamp - 1);
@@ -656,7 +692,7 @@ contract KSDistributorTest is Test {
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
-    distributor = new KSDistributor(owner, initialOperators, initialGuardians);
+    distributor = new KSDistributor(owner, initialOperators, initialGuardians, 3 hours);
   }
 
   function _setUpHooks() internal {
@@ -693,7 +729,7 @@ contract KSDistributorTest is Test {
     returns (bytes32 campaignId, KSDistributor.Campaign memory campaign)
   {
     campaign.startTimestamp = block.timestamp + bound(seed, 100, MAX_TIME_DURATION);
-    campaign.endTimestamp = campaign.startTimestamp + bound(seed, 1 hours, MAX_TIME_DURATION);
+    campaign.endTimestamp = campaign.startTimestamp + bound(seed, 1 days, MAX_TIME_DURATION);
     campaign.metadata = 'metadata';
     vm.prank(operator);
     campaignId = distributor.createCampaign(
@@ -727,7 +763,7 @@ contract KSDistributorTest is Test {
     root = leaves.getRoot();
     if (doUpdate) {
       vm.prank(operator);
-      distributor.updateRoot(campaignId, root);
+      distributor.submitRoot(campaignId, root, 0);
     }
   }
 
