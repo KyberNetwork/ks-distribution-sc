@@ -28,8 +28,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   /// @inheritdoc IKSDistributor
   mapping(bytes32 campaignId => PendingRoot) public pendingRoots;
 
-  /// @notice Whether a pack value of (hook, hookSelector) is whitelisted
-  mapping(bytes32 => bool) internal whitelistedHooksPacked;
+  /// @notice Whether a hook and a selector is whitelisted
+  mapping(address hook => mapping(bytes4 selector => bool)) public whitelistedHooks;
 
   /// @notice The claimed amount for each `infoHash` in each campaign
   mapping(bytes32 infoHash => mapping(address => uint256)) internal claimed;
@@ -141,13 +141,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
 
     emit MetadataUpdated(campaignId, oldMetadata, metadata);
   }
-
   /// @inheritdoc IKSDistributor
-  function whitelistedHooks(address hook, bytes4 selector) public view returns (bool) {
-    return whitelistedHooksPacked[keccak256(abi.encode(hook, selector))];
-  }
 
-  /// @inheritdoc IKSDistributor
   function updateWhitelistedHooks(
     address[] calldata hooks,
     bytes4[] calldata selectors,
@@ -155,8 +150,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   ) public onlyOwner {
     require(hooks.length == selectors.length, InvalidLengths());
     for (uint256 i = 0; i < hooks.length; i++) {
-      bytes32 packed = keccak256(abi.encode(hooks[i], selectors[i]));
-      whitelistedHooksPacked[packed] = grantOrRevoke;
+      whitelistedHooks[hooks[i]][selectors[i]] = grantOrRevoke;
 
       emit WhitelistedHookUpdated(hooks[i], selectors[i], grantOrRevoke);
     }
@@ -355,9 +349,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
 
   function _callHook(address hook, bytes calldata hookData) internal {
     require(hookData.length >= 4, InvalidHookData(hookData));
-    bytes4 hookSelector = bytes4(hookData[:4]);
-    bytes32 packed = keccak256(abi.encode(hook, bytes4(hookSelector)));
-    require(whitelistedHooksPacked[packed], NotWhitelistedHook(hook, hookSelector));
+    bytes4 selector = bytes4(hookData[:4]);
+    require(whitelistedHooks[hook][selector], NotWhitelistedHook(hook, selector));
     hook.functionCall(hookData);
   }
 
