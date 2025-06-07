@@ -913,7 +913,7 @@ contract KSDistributorTest is Test {
 
         if (withHook) {
           emit IKSDistributor.RewardsClaimedForAccount(
-            campaignId, account, tokens, claimable, swapHook
+            campaignId, account, leaves.getRoot(), tokens, claimable, swapHook
           );
           distributor.claimRewardsForAccountWithHook(
             campaignId,
@@ -927,7 +927,7 @@ contract KSDistributorTest is Test {
           assertEq(IERC20(swapHook).balanceOf(recipient), amounts[0]);
         } else {
           emit IKSDistributor.RewardsClaimedForAccount(
-            campaignId, account, tokens, claimable, recipient
+            campaignId, account, leaves.getRoot(), tokens, claimable, recipient
           );
           distributor.claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
         }
@@ -942,7 +942,14 @@ contract KSDistributorTest is Test {
 
         if (withHook) {
           emit IKSDistributor.RewardsClaimedForERC721(
-            campaignId, address(nft), erc721Id, account, tokens, claimable, swapHook
+            campaignId,
+            address(nft),
+            erc721Id,
+            account,
+            leaves.getRoot(),
+            tokens,
+            claimable,
+            swapHook
           );
           distributor.claimRewardsForERC721WithHook(
             campaignId,
@@ -958,7 +965,14 @@ contract KSDistributorTest is Test {
           assertEq(IERC20(swapHook).balanceOf(recipient), amounts[0]);
         } else {
           emit IKSDistributor.RewardsClaimedForERC721(
-            campaignId, address(nft), erc721Id, account, tokens, claimable, recipient
+            campaignId,
+            address(nft),
+            erc721Id,
+            account,
+            leaves.getRoot(),
+            tokens,
+            claimable,
+            recipient
           );
           distributor.claimRewardsForERC721(
             campaignId, address(nft), erc721Id, tokens, amounts, proof, recipient

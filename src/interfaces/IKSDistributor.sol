@@ -34,6 +34,7 @@ interface IKSDistributor {
   event RewardsClaimedForAccount(
     bytes32 indexed campaignId,
     address indexed account,
+    bytes32 root,
     address[] tokens,
     uint256[] amounts,
     address recipient
@@ -45,6 +46,7 @@ interface IKSDistributor {
     address indexed erc721Addr,
     uint256 indexed erc721Id,
     address claimant,
+    bytes32 root,
     address[] tokens,
     uint256[] amounts,
     address recipient

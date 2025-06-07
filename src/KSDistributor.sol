@@ -229,7 +229,9 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     );
 
     uint256[] memory claimedAmounts = _transferRewards(infoHash, tokens, amounts, recipient);
-    emit RewardsClaimedForAccount(campaignId, _msgSender(), tokens, claimedAmounts, recipient);
+    emit RewardsClaimedForAccount(
+      campaignId, _msgSender(), roots[campaignId], tokens, claimedAmounts, recipient
+    );
   }
 
   /// @inheritdoc IKSDistributor
@@ -288,7 +290,14 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
 
     uint256[] memory claimedAmounts = _transferRewards(infoHash, tokens, amounts, recipient);
     emit RewardsClaimedForERC721(
-      campaignId, erc721Addr, erc721Id, msgSender, tokens, claimedAmounts, recipient
+      campaignId,
+      erc721Addr,
+      erc721Id,
+      msgSender,
+      roots[campaignId],
+      tokens,
+      claimedAmounts,
+      recipient
     );
   }
 
