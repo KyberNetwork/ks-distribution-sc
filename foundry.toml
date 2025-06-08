@@ -14,6 +14,7 @@ number_underscore = 'thousands'
 sort_imports = true
 
 [rpc_endpoints]
+mainnet = "${RPC_MAINNET}"
 sepolia = "${RPC_SEPOLIA}"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

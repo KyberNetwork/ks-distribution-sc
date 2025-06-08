@@ -3,13 +3,12 @@ pragma solidity ^0.8.0;
 
 import 'src/KSDistributor.sol';
 
-import {ERC721Mock} from './mocks/ERC721Mock.sol';
-import {SwapMock} from './mocks/SwapMock.sol';
+import './mocks/ERC721Mock.sol';
+import './mocks/SwapMock.sol';
 import './utils/MerkleUtils.sol';
 
 import 'forge-std/Test.sol';
-import 'forge-std/console.sol';
-import {ERC20Mock} from 'openzeppelin-contracts/mocks/token/ERC20Mock.sol';
+import 'openzeppelin-contracts/mocks/token/ERC20Mock.sol';
 
 contract KSDistributorTest is Test {
   using MerkleUtils for bytes32[];
