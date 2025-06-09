@@ -8,10 +8,13 @@ contract CreateCampaignScript is BaseScript {
   using stdJson for string;
 
   bytes32 expectedCampaignId = bytes32(0);
-  uint256 effectiveTimestamp = 0;
+  uint256 effectiveTimestamp = type(uint256).max;
 
   function run() external {
     require(expectedCampaignId != bytes32(0), 'expectedCampaignId must be set to a non-zero value');
+    require(
+      effectiveTimestamp != type(uint256).max, 'effectiveTimestamp must be set to a valid value'
+    );
 
     uint256 chainId;
     assembly {
