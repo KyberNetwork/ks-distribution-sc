@@ -213,19 +213,16 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     _checkPendingRoot(campaignId);
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
+    bytes32 root = roots[campaignId];
     require(
       MerkleProof.verifyCalldata(
-        proof,
-        roots[campaignId],
-        keccak256(bytes.concat(keccak256(abi.encode(infoHash, tokens, amounts))))
+        proof, root, keccak256(bytes.concat(keccak256(abi.encode(infoHash, tokens, amounts))))
       ),
       InvalidProof()
     );
 
     uint256[] memory claimedAmounts = _transferRewards(infoHash, tokens, amounts, recipient);
-    emit RewardsClaimedForAccount(
-      campaignId, _msgSender(), roots[campaignId], tokens, claimedAmounts, recipient
-    );
+    emit RewardsClaimedForAccount(campaignId, _msgSender(), root, tokens, claimedAmounts, recipient);
   }
 
   /// @inheritdoc IKSDistributor
@@ -273,25 +270,17 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     require(msgSender == IERC721(erc721Addr).ownerOf(erc721Id), UnauthorizedClaimant(msgSender));
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, erc721Addr, erc721Id));
+    bytes32 root = roots[campaignId];
     require(
       MerkleProof.verifyCalldata(
-        proof,
-        roots[campaignId],
-        keccak256(bytes.concat(keccak256(abi.encode(infoHash, tokens, amounts))))
+        proof, root, keccak256(bytes.concat(keccak256(abi.encode(infoHash, tokens, amounts))))
       ),
       InvalidProof()
     );
 
     uint256[] memory claimedAmounts = _transferRewards(infoHash, tokens, amounts, recipient);
     emit RewardsClaimedForERC721(
-      campaignId,
-      erc721Addr,
-      erc721Id,
-      msgSender,
-      roots[campaignId],
-      tokens,
-      claimedAmounts,
-      recipient
+      campaignId, erc721Addr, erc721Id, msgSender, root, tokens, claimedAmounts, recipient
     );
   }
 
