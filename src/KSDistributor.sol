@@ -444,6 +444,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   function _transferPendingRewards() internal {
     TransientSlot.Uint256Slot recipientsLengthSlot = PENDING_REWARDS_STORAGE.offset(1).asUint256();
     uint256 recipientsLength = recipientsLengthSlot.tload();
+    recipientsLengthSlot.tstore(0);
 
     bytes32 recipientsSlot = PENDING_REWARDS_STORAGE.offset(1).deriveArray();
     bytes32 tokensSlot = PENDING_REWARDS_STORAGE.offset(2).deriveArray();
@@ -451,8 +452,12 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     for (uint256 i = 0; i < recipientsLength; i++) {
       address recipient = recipientsSlot.offset(i).asAddress().tload();
       address token = tokensSlot.offset(i).asAddress().tload();
-      uint256 amount =
-        PENDING_REWARDS_STORAGE.deriveMapping(recipient).deriveMapping(token).asUint256().tload();
+
+      TransientSlot.Uint256Slot amountSlot =
+        PENDING_REWARDS_STORAGE.deriveMapping(recipient).deriveMapping(token).asUint256();
+      uint256 amount = amountSlot.tload();
+      amountSlot.tstore(0);
+
       if (amount > 0) {
         IERC20(token).safeTransfer(recipient, amount);
       }
