@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import 'src/KSDistributor.sol';
+import './harnesses/KSDistributorHarness.sol';
 
 import './mocks/ERC721Mock.sol';
 import './mocks/SwapMock.sol';
@@ -26,7 +26,7 @@ contract KSDistributorTest is Test {
   uint256 public constant MAX_CAMPAIGN_SIZE = 20;
   uint256 public constant MAX_TIME_DURATION = 1 days;
 
-  KSDistributor public distributor;
+  KSDistributorHarness public distributor;
 
   ERC20Mock public token0;
   ERC20Mock public token1;
@@ -38,6 +38,8 @@ contract KSDistributorTest is Test {
   address public operator = makeAddr('operator');
   address public guardian = makeAddr('guardian');
   address public randomCaller = makeAddr('randomCaller');
+
+  mapping(address => mapping(address => uint256)) public pendingRewards;
 
   function setUp() public {
     vm.warp(1e18);
@@ -686,12 +688,38 @@ contract KSDistributorTest is Test {
     }
   }
 
+  function testPendingRewards(uint256[20] memory seeds) public {
+    address[] memory tokens = new address[](3);
+    for (uint256 i = 0; i < tokens.length; i++) {
+      tokens[i] = address(new ERC20Mock());
+      ERC20Mock(tokens[i]).mint(address(distributor), type(uint128).max);
+    }
+
+    for (uint256 i = 0; i < seeds.length; i++) {
+      uint256 amount = bound(seeds[i], 0, 1e18);
+      address recipient = vm.addr(bound(seeds[i] >> 128, 1, 3));
+      address token = tokens[bound(uint128(seeds[i]), 0, 2)];
+      distributor.addPendingReward(recipient, token, amount);
+      pendingRewards[recipient][token] += amount;
+    }
+
+    distributor.transferPendingRewards();
+
+    for (uint256 i = 1; i <= 3; i++) {
+      address recipient = vm.addr(i);
+      for (uint256 j = 0; j <= 2; j++) {
+        address token = tokens[j];
+        assertEq(IERC20(token).balanceOf(recipient), pendingRewards[recipient][token]);
+      }
+    }
+  }
+
   function _setUpKSDistributor() internal {
     address[] memory initialOperators = new address[](1);
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
-    distributor = new KSDistributor(owner, initialOperators, initialGuardians, 3 hours);
+    distributor = new KSDistributorHarness(owner, initialOperators, initialGuardians, 3 hours);
   }
 
   function _setUpHooks() internal {
