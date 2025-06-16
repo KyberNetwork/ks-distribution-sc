@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.0;
+pragma solidity 0.8.28;
 
 import './interfaces/IKSDistributor.sol';
 import './libraries/CalldataDecoder.sol';
@@ -8,13 +8,22 @@ import 'ks-growth-utils-sc/KSRescueV2.sol';
 
 import 'openzeppelin-contracts/utils/Address.sol';
 import 'openzeppelin-contracts/utils/ReentrancyGuard.sol';
+
+import 'openzeppelin-contracts/utils/SlotDerivation.sol';
+import 'openzeppelin-contracts/utils/TransientSlot.sol';
 import 'openzeppelin-contracts/utils/cryptography/MerkleProof.sol';
 
 contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   using SafeERC20 for IERC20;
   using Address for address;
+  using SlotDerivation for bytes32;
+  using TransientSlot for *;
 
   uint256 public constant MIN_CAMPAIGN_DURATION = 1 hours;
+
+  // keccak256(abi.encode(uint256(keccak256('ks-distributor.storage.PendingRewards')) - 1)) & ~bytes32(uint256(0xff))
+  bytes32 internal constant PENDING_REWARDS_STORAGE =
+    0x667c036918e8dbe38a4ec9003830d89d321fbfffacba5bdecb14c1bbca99be00;
 
   /// @inheritdoc IKSDistributor
   uint256 public defaultTimeLock;
@@ -32,7 +41,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   mapping(address hook => mapping(bytes4 selector => bool)) public whitelistedHooks;
 
   /// @notice The claimed amount for each `infoHash` in each campaign
-  mapping(bytes32 infoHash => mapping(address => uint256)) internal claimed;
+  mapping(bytes32 infoHash => mapping(address token => uint256)) internal claimed;
 
   /// @notice Restricts a function to be called before a certain timestamp
   modifier onlyBefore(uint256 timestamp) {
@@ -185,7 +194,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     bytes32[] calldata proof,
     address recipient
   ) public nonReentrant whenNotPaused {
-    _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+    _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient, true);
   }
 
   /// @inheritdoc IKSDistributor
@@ -198,7 +207,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     address hook,
     bytes calldata hookData
   ) public nonReentrant whenNotPaused {
-    _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+    _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient, true);
     _callHook(hook, hookData);
   }
 
@@ -207,7 +216,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     address[] calldata tokens,
     uint256[] calldata amounts,
     bytes32[] calldata proof,
-    address recipient
+    address recipient,
+    bool directTransfer
   ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
     _checkPendingRoot(campaignId);
@@ -221,7 +231,10 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
       InvalidProof()
     );
 
-    uint256[] memory claimedAmounts = _transferRewards(infoHash, tokens, amounts, recipient);
+    uint256[] memory claimedAmounts = directTransfer
+      ? _transferRewards(infoHash, tokens, amounts, recipient)
+      : _creditRewards(infoHash, tokens, amounts, recipient);
+
     emit RewardsClaimedForAccount(campaignId, _msgSender(), root, tokens, claimedAmounts, recipient);
   }
 
@@ -235,7 +248,9 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     bytes32[] calldata proof,
     address recipient
   ) public nonReentrant whenNotPaused {
-    _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+    _claimRewardsForERC721(
+      campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient, true
+    );
   }
 
   /// @inheritdoc IKSDistributor
@@ -250,7 +265,9 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     address hook,
     bytes calldata hookData
   ) public nonReentrant whenNotPaused {
-    _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+    _claimRewardsForERC721(
+      campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient, true
+    );
     _callHook(hook, hookData);
   }
 
@@ -261,7 +278,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
     address[] calldata tokens,
     uint256[] calldata amounts,
     bytes32[] calldata proof,
-    address recipient
+    address recipient,
+    bool directTransfer
   ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
     _checkPendingRoot(campaignId);
@@ -278,7 +296,10 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
       InvalidProof()
     );
 
-    uint256[] memory claimedAmounts = _transferRewards(infoHash, tokens, amounts, recipient);
+    uint256[] memory claimedAmounts = directTransfer
+      ? _transferRewards(infoHash, tokens, amounts, recipient)
+      : _creditRewards(infoHash, tokens, amounts, recipient);
+
     emit RewardsClaimedForERC721(
       campaignId, erc721Addr, erc721Id, msgSender, root, tokens, claimedAmounts, recipient
     );
@@ -327,7 +348,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
           bytes32[] calldata proof,
           address recipient
         ) = CalldataDecoder.decodeClaimRewardsForAccountData(datas[i][4:]);
-        _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient);
+        _claimRewardsForAccount(campaignId, tokens, amounts, proof, recipient, false);
       } else if (selector == this.claimRewardsForERC721.selector) {
         (
           bytes32 campaignId,
@@ -338,11 +359,15 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
           bytes32[] calldata proof,
           address recipient
         ) = CalldataDecoder.decodeClaimRewardsForERC721Data(datas[i][4:]);
-        _claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient);
+        _claimRewardsForERC721(
+          campaignId, erc721Addr, erc721Id, tokens, amounts, proof, recipient, false
+        );
       } else {
         revert InvalidSelector(selector);
       }
     }
+
+    _transferPendingRewards();
   }
 
   function _callHook(address hook, bytes calldata hookData) internal {
@@ -366,8 +391,75 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
       uint256 claimable = amounts[i] - claimed[infoHash][token];
       if (claimable > 0) {
         claimed[infoHash][token] += claimable;
-        IERC20(token).safeTransfer(recipient, claimable);
         claimedAmounts[i] = claimable;
+
+        IERC20(token).safeTransfer(recipient, claimable);
+      }
+    }
+  }
+
+  function _creditRewards(
+    bytes32 infoHash,
+    address[] calldata tokens,
+    uint256[] calldata amounts,
+    address recipient
+  ) internal returns (uint256[] memory claimedAmounts) {
+    claimedAmounts = new uint256[](tokens.length);
+    for (uint256 i = 0; i < tokens.length; i++) {
+      address token = tokens[i];
+
+      uint256 claimable = amounts[i] - claimed[infoHash][token];
+      if (claimable > 0) {
+        claimed[infoHash][token] += claimable;
+        claimedAmounts[i] = claimable;
+
+        _addPendingReward(recipient, token, claimable);
+      }
+    }
+  }
+
+  function _addPendingReward(address recipient, address token, uint256 amount) internal {
+    if (amount == 0) {
+      return;
+    }
+
+    TransientSlot.Uint256Slot amountSlot =
+      PENDING_REWARDS_STORAGE.deriveMapping(recipient).deriveMapping(token).asUint256();
+    uint256 previousAmount = amountSlot.tload();
+    amountSlot.tstore(previousAmount + amount);
+
+    if (previousAmount == 0) {
+      TransientSlot.Uint256Slot recipientsLengthSlot = PENDING_REWARDS_STORAGE.offset(1).asUint256();
+      uint256 recipientsLength = recipientsLengthSlot.tload();
+      recipientsLengthSlot.tstore(recipientsLength + 1);
+
+      bytes32 recipientsSlot = PENDING_REWARDS_STORAGE.offset(1).deriveArray();
+      recipientsSlot.offset(recipientsLength).asAddress().tstore(recipient);
+
+      bytes32 tokensSlot = PENDING_REWARDS_STORAGE.offset(2).deriveArray();
+      tokensSlot.offset(recipientsLength).asAddress().tstore(token);
+    }
+  }
+
+  function _transferPendingRewards() internal {
+    TransientSlot.Uint256Slot recipientsLengthSlot = PENDING_REWARDS_STORAGE.offset(1).asUint256();
+    uint256 recipientsLength = recipientsLengthSlot.tload();
+    recipientsLengthSlot.tstore(0);
+
+    bytes32 recipientsSlot = PENDING_REWARDS_STORAGE.offset(1).deriveArray();
+    bytes32 tokensSlot = PENDING_REWARDS_STORAGE.offset(2).deriveArray();
+
+    for (uint256 i = 0; i < recipientsLength; i++) {
+      address recipient = recipientsSlot.offset(i).asAddress().tload();
+      address token = tokensSlot.offset(i).asAddress().tload();
+
+      TransientSlot.Uint256Slot amountSlot =
+        PENDING_REWARDS_STORAGE.deriveMapping(recipient).deriveMapping(token).asUint256();
+      uint256 amount = amountSlot.tload();
+      amountSlot.tstore(0);
+
+      if (amount > 0) {
+        IERC20(token).safeTransfer(recipient, amount);
       }
     }
   }
