@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import {IERC20} from 'openzeppelin-contracts/contracts/token/ERC20/IERC20.sol';
-
-interface IKSDistributor {
+interface IKSDistributorV2 {
   /// @notice Emitted when a new campaign is created
   event CampaignCreated(
     bytes32 indexed campaignId, uint256 startTimestamp, uint256 endTimestamp, string metadata
@@ -17,6 +15,9 @@ interface IKSDistributor {
 
   /// @notice Emitted when the default time lock is updated
   event DefaultTimeLockUpdated(uint256 oldTime, uint256 newTime);
+
+  /// @notice Emitted when the claim signer is updated
+  event ClaimSignerUpdated(address oldSigner, address newSigner);
 
   /// @notice Emitted when startTimestamp of a campaign is updated
   event StartTimestampUpdated(bytes32 indexed campaignId, uint256 oldTime, uint256 newTime);
@@ -43,6 +44,7 @@ interface IKSDistributor {
   /// @notice Emitted when rewards are claimed for an ERC721 token
   event RewardsClaimedForERC721(
     bytes32 indexed campaignId,
+    uint256 chainId,
     address indexed erc721Addr,
     uint256 indexed erc721Id,
     address claimant,
@@ -96,10 +98,11 @@ interface IKSDistributor {
     uint256 effectiveTimestamp;
   }
 
-  /**
-   * @notice Returns the default time lock for the campaign
-   */
+  /// @notice Returns the default time lock for the campaign
   function defaultTimeLock() external view returns (uint256);
+
+  /// @notice Returns the address of the claim signer
+  function claimSigner() external view returns (address);
 
   /**
    * @notice Returns the information of a campaign
@@ -135,6 +138,12 @@ interface IKSDistributor {
    * @param newTimeLock the new default time lock in seconds
    */
   function updateDefaultTimeLock(uint256 newTimeLock) external;
+
+  /**
+   * @notice Updates the claim signer
+   * @param newSigner the new claim signer
+   */
+  function updateClaimSigner(address newSigner) external;
 
   /**
    * @notice Creates a new campaign
@@ -219,32 +228,18 @@ interface IKSDistributor {
   /**
    * @notice Returns the claimed amount for an ERC721 token in a campaign
    * @param campaignId the unique id of the campaign
+   * @param chainId the chain id that the ERC721 token is deployed on
    * @param erc721Addr the address of the ERC721 contract
    * @param erc721Id the campaignId of the ERC721 token
    * @param token the address of the reward token
    */
   function getClaimedAmountForERC721(
     bytes32 campaignId,
+    uint256 chainId,
     address erc721Addr,
     uint256 erc721Id,
     address token
   ) external view returns (uint256);
-
-  /**
-   * @notice Claims rewards for an account in a campaign
-   * @param campaignId the unique id of the campaign
-   * @param tokens the addresses of the reward tokens
-   * @param amounts the cumulative amounts of rewards
-   * @param proof the Merkle proof
-   * @param recipient the address of the recipient
-   */
-  function claimRewardsForAccount(
-    bytes32 campaignId,
-    address[] calldata tokens,
-    uint256[] calldata amounts,
-    bytes32[] calldata proof,
-    address recipient
-  ) external;
 
   /**
    * @notice Claims rewards for an account in a campaign with a hook
@@ -256,7 +251,7 @@ interface IKSDistributor {
    * @param hook the address of the hook
    * @param hookData the data to pass to the hook
    */
-  function claimRewardsForAccountWithHook(
+  function claimRewardsForAccount(
     bytes32 campaignId,
     address[] calldata tokens,
     uint256[] calldata amounts,
@@ -267,28 +262,9 @@ interface IKSDistributor {
   ) external;
 
   /**
-   * @notice Claims rewards for an ERC721 token in a campaign
-   * @param campaignId the unique id of the campaign
-   * @param erc721Addr the address of the ERC721 contract
-   * @param erc721Id the campaignId of the ERC721 token
-   * @param tokens the addresses of the reward tokens
-   * @param amounts the cumulative amounts of rewards
-   * @param proof the Merkle proof
-   * @param recipient the address of the recipient
-   */
-  function claimRewardsForERC721(
-    bytes32 campaignId,
-    address erc721Addr,
-    uint256 erc721Id,
-    address[] calldata tokens,
-    uint256[] calldata amounts,
-    bytes32[] calldata proof,
-    address recipient
-  ) external;
-
-  /**
    * @notice Claims rewards for an ERC721 token in a campaign with a hook
    * @param campaignId the unique id of the campaign
+   * @param chainId the chain id that the ERC721 token is deployed on
    * @param erc721Addr the address of the ERC721 contract
    * @param erc721Id the campaignId of the ERC721 token
    * @param tokens the addresses of the reward tokens
@@ -298,8 +274,9 @@ interface IKSDistributor {
    * @param hook the address of the hook
    * @param hookData the data to pass to the hook
    */
-  function claimRewardsForERC721WithHook(
+  function claimRewardsForERC721(
     bytes32 campaignId,
+    uint256 chainId,
     address erc721Addr,
     uint256 erc721Id,
     address[] calldata tokens,
@@ -313,15 +290,9 @@ interface IKSDistributor {
   /**
    * @notice Claims rewards in a batch
    * @param datas the datas to call in order to claim rewards
-   */
-  function batchClaimRewards(bytes[] calldata datas) external;
-
-  /**
-   * @notice Claims rewards in a batch with a hook
-   * @param datas the datas to call in order to claim rewards
    * @param hook the address of the hook
    * @param hookData the data to pass to the hook
    */
-  function batchClaimRewardsWithHook(bytes[] calldata datas, address hook, bytes calldata hookData)
+  function batchClaimRewards(bytes[] calldata datas, address hook, bytes calldata hookData)
     external;
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import {Hashes} from 'openzeppelin-contracts/utils/cryptography/Hashes.sol';
+import {Hashes} from 'openzeppelin-contracts/contracts/utils/cryptography/Hashes.sol';
 
 library MerkleUtils {
   function getRoot(bytes32[] memory leaves) internal pure returns (bytes32) {

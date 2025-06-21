@@ -1,3 +1,5 @@
-forge-std/=lib/ks-growth-utils-sc/lib/forge-std/src/
+forge-std/=lib/ks-common-sc/lib/forge-std/src/
+ks-common-sc/=lib/ks-common-sc/src/
 ks-growth-utils-sc/=lib/ks-growth-utils-sc/contracts/
-openzeppelin-contracts/=lib/ks-growth-utils-sc/lib/openzeppelin-contracts/contracts/
+openzeppelin-contracts/=lib/ks-common-sc/lib/openzeppelin-contracts/
+risc0/=lib/risc0-ethereum/contracts/src/

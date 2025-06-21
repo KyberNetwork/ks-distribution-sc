@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import {IERC20} from 'openzeppelin-contracts/contracts/token/ERC20/IERC20.sol';
+interface IKSDistributorV2ZK {
+  struct ERC721Info {
+    uint256 chainId;
+    address erc721Addr;
+    uint256 erc721Id;
+  }
 
-interface IKSDistributor {
+  struct RewardsInfo {
+    address[] tokens;
+    uint256[] amounts;
+  }
+
   /// @notice Emitted when a new campaign is created
   event CampaignCreated(
     bytes32 indexed campaignId, uint256 startTimestamp, uint256 endTimestamp, string metadata
@@ -17,6 +26,9 @@ interface IKSDistributor {
 
   /// @notice Emitted when the default time lock is updated
   event DefaultTimeLockUpdated(uint256 oldTime, uint256 newTime);
+
+  /// @notice Emitted when the portal proxy address for a chain is updated
+  event PortalProxyUpdated(uint256 indexed chainId, address oldProxy, address newProxy);
 
   /// @notice Emitted when startTimestamp of a campaign is updated
   event StartTimestampUpdated(bytes32 indexed campaignId, uint256 oldTime, uint256 newTime);
@@ -43,9 +55,8 @@ interface IKSDistributor {
   /// @notice Emitted when rewards are claimed for an ERC721 token
   event RewardsClaimedForERC721(
     bytes32 indexed campaignId,
-    address indexed erc721Addr,
-    uint256 indexed erc721Id,
-    address claimant,
+    ERC721Info erc721Info,
+    address indexed claimant,
     bytes32 root,
     address[] tokens,
     uint256[] amounts,
@@ -96,9 +107,12 @@ interface IKSDistributor {
     uint256 effectiveTimestamp;
   }
 
-  /**
-   * @notice Returns the default time lock for the campaign
-   */
+  struct ZKProof {
+    bytes seal;
+    bytes journal;
+  }
+
+  /// @notice Returns the default time lock for the campaign
   function defaultTimeLock() external view returns (uint256);
 
   /**
@@ -135,6 +149,13 @@ interface IKSDistributor {
    * @param newTimeLock the new default time lock in seconds
    */
   function updateDefaultTimeLock(uint256 newTimeLock) external;
+
+  /**
+   * @notice Updates the portal proxy address for a chain
+   * @param chainId the chain id
+   * @param newPortalProxy the new portal proxy address
+   */
+  function updatePortalProxy(uint256 chainId, address newPortalProxy) external;
 
   /**
    * @notice Creates a new campaign
@@ -219,47 +240,27 @@ interface IKSDistributor {
   /**
    * @notice Returns the claimed amount for an ERC721 token in a campaign
    * @param campaignId the unique id of the campaign
-   * @param erc721Addr the address of the ERC721 contract
-   * @param erc721Id the campaignId of the ERC721 token
+   * @param erc721Info the information of the ERC721 token
    * @param token the address of the reward token
    */
   function getClaimedAmountForERC721(
     bytes32 campaignId,
-    address erc721Addr,
-    uint256 erc721Id,
+    ERC721Info calldata erc721Info,
     address token
   ) external view returns (uint256);
 
   /**
-   * @notice Claims rewards for an account in a campaign
-   * @param campaignId the unique id of the campaign
-   * @param tokens the addresses of the reward tokens
-   * @param amounts the cumulative amounts of rewards
-   * @param proof the Merkle proof
-   * @param recipient the address of the recipient
-   */
-  function claimRewardsForAccount(
-    bytes32 campaignId,
-    address[] calldata tokens,
-    uint256[] calldata amounts,
-    bytes32[] calldata proof,
-    address recipient
-  ) external;
-
-  /**
    * @notice Claims rewards for an account in a campaign with a hook
    * @param campaignId the unique id of the campaign
-   * @param tokens the addresses of the reward tokens
-   * @param amounts the cumulative amounts of rewards
+   * @param rewardsInfo the information of the rewards
    * @param proof the Merkle proof
    * @param recipient the address of the recipient
    * @param hook the address of the hook
    * @param hookData the data to pass to the hook
    */
-  function claimRewardsForAccountWithHook(
+  function claimRewardsForAccount(
     bytes32 campaignId,
-    address[] calldata tokens,
-    uint256[] calldata amounts,
+    RewardsInfo calldata rewardsInfo,
     bytes32[] calldata proof,
     address recipient,
     address hook,
@@ -267,43 +268,20 @@ interface IKSDistributor {
   ) external;
 
   /**
-   * @notice Claims rewards for an ERC721 token in a campaign
-   * @param campaignId the unique id of the campaign
-   * @param erc721Addr the address of the ERC721 contract
-   * @param erc721Id the campaignId of the ERC721 token
-   * @param tokens the addresses of the reward tokens
-   * @param amounts the cumulative amounts of rewards
-   * @param proof the Merkle proof
-   * @param recipient the address of the recipient
-   */
-  function claimRewardsForERC721(
-    bytes32 campaignId,
-    address erc721Addr,
-    uint256 erc721Id,
-    address[] calldata tokens,
-    uint256[] calldata amounts,
-    bytes32[] calldata proof,
-    address recipient
-  ) external;
-
-  /**
    * @notice Claims rewards for an ERC721 token in a campaign with a hook
    * @param campaignId the unique id of the campaign
-   * @param erc721Addr the address of the ERC721 contract
-   * @param erc721Id the campaignId of the ERC721 token
-   * @param tokens the addresses of the reward tokens
-   * @param amounts the cumulative amounts of rewards
+   * @param erc721Info the information of the ERC721 token
+   * @param rewardsInfo the information of the rewards
    * @param proof the Merkle proof
    * @param recipient the address of the recipient
    * @param hook the address of the hook
    * @param hookData the data to pass to the hook
    */
-  function claimRewardsForERC721WithHook(
+  function claimRewardsForERC721(
     bytes32 campaignId,
-    address erc721Addr,
-    uint256 erc721Id,
-    address[] calldata tokens,
-    uint256[] calldata amounts,
+    ERC721Info calldata erc721Info,
+    ZKProof calldata zkProof,
+    RewardsInfo calldata rewardsInfo,
     bytes32[] calldata proof,
     address recipient,
     address hook,
@@ -313,15 +291,9 @@ interface IKSDistributor {
   /**
    * @notice Claims rewards in a batch
    * @param datas the datas to call in order to claim rewards
-   */
-  function batchClaimRewards(bytes[] calldata datas) external;
-
-  /**
-   * @notice Claims rewards in a batch with a hook
-   * @param datas the datas to call in order to claim rewards
    * @param hook the address of the hook
    * @param hookData the data to pass to the hook
    */
-  function batchClaimRewardsWithHook(bytes[] calldata datas, address hook, bytes calldata hookData)
+  function batchClaimRewards(bytes[] calldata datas, address hook, bytes calldata hookData)
     external;
 }

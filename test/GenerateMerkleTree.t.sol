@@ -7,7 +7,7 @@ import {ERC721Mock} from './mocks/ERC721Mock.sol';
 
 import 'forge-std/StdJson.sol';
 import 'forge-std/Test.sol';
-import {ERC20Mock} from 'openzeppelin-contracts/mocks/token/ERC20Mock.sol';
+import {ERC20Mock} from 'openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol';
 
 contract GenerateMerkleTreeTest is Test {
   using stdJson for string;

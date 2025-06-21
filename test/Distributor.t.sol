@@ -8,7 +8,9 @@ import './mocks/SwapMock.sol';
 import './utils/MerkleUtils.sol';
 
 import 'forge-std/Test.sol';
-import 'openzeppelin-contracts/mocks/token/ERC20Mock.sol';
+import 'openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol';
+
+import {KyberSwapRole} from 'ks-growth-utils-sc/KyberSwapRole.sol';
 
 contract KSDistributorTest is Test {
   using MerkleUtils for bytes32[];
