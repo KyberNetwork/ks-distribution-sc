@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.28;
 
-import {IKSDistributorV2ZK} from '../interfaces/IKSDistributorV2ZK.sol';
+import '../interfaces/IKSDistributorV2ZK.sol';
+
 import {ClaimDataDecoderV2ZK} from '../libraries/ClaimDataDecoderV2ZK.sol';
-import {OpSteelLibrary, OptimismPortal2, Steel} from '../libraries/OpSteelLibrary.sol';
+import {IOptimismPortal2, OpSteelLibrary, Steel} from '../libraries/OpSteelLibrary.sol';
 
 import {ImageID} from './ImageID.sol';
 
 import {Management} from 'ks-common-sc/base/Management.sol';
 import {Rescuable} from 'ks-common-sc/base/Rescuable.sol';
+import {KSRoles} from 'ks-common-sc/libraries/KSRoles.sol';
+import {TokenHelper} from 'ks-common-sc/libraries/token/TokenHelper.sol';
 
 import {Address} from 'openzeppelin-contracts/contracts/utils/Address.sol';
 import {ReentrancyGuard} from 'openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol';
@@ -24,7 +27,7 @@ import {IERC721} from 'openzeppelin-contracts/contracts/token/ERC721/IERC721.sol
 
 import {IRiscZeroVerifier} from 'risc0/IRiscZeroVerifier.sol';
 
-contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, Rescuable, ImageID {
+contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, Rescuable {
   using Address for address;
   using SlotDerivation for bytes32;
   using TransientSlot for *;
@@ -341,7 +344,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     );
   }
 
-  function _verifyZKProof(ERC721Info calldata erc721Info, ZKProof calldata zkProof) internal {
+  function _verifyZKProof(ERC721Info calldata erc721Info, ZKProof calldata zkProof) internal view {
     Journal memory journal = Journal({
       commitment: zkProof.commitment,
       tokenAddress: erc721Info.erc721Addr,
@@ -349,10 +352,10 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
       account: _msgSender()
     });
 
-    OptimismPortal2 portal = OptimismPortal2(portalProxies[erc721Info.chainId]);
+    IOptimismPortal2 portal = IOptimismPortal2(portalProxies[erc721Info.chainId]);
     require(OpSteelLibrary.validateCommitment(portal, zkProof.commitment), InvalidCommitment());
 
-    verifier.verify(zkProof.seal, NFT_OWNERSHIP_ID, sha256(abi.encode(journal)));
+    verifier.verify(zkProof.seal, ImageID.NFT_OWNERSHIP_ID, sha256(abi.encode(journal)));
   }
 
   /// @inheritdoc IKSDistributorV2ZKActions

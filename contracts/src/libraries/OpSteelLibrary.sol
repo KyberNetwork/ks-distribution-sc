@@ -11,7 +11,7 @@ import {
 } from 'risc0/steel/OpSteel.sol';
 
 /// @notice Validate an OP L2 block commitment, enabling verification on L1 of Steel queries against L2 state.
-abstract contract OpSteelLibrary {
+library OpSteelLibrary {
   /// @notice Validates a Steel commitment.
   /// @param commitment The commitment to validate.
   /// @return True if the commitment is valid, false otherwise.
