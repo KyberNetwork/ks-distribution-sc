@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import 'src/KSDistributor.sol';
-import 'src/interfaces/IKSZapRouter.sol';
+import 'contracts/src/KSDistributor.sol';
+import 'contracts/src/interfaces/IKSZapRouter.sol';
 
 import '../mocks/ERC721Mock.sol';
 import '../utils/MerkleUtils.sol';

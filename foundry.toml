@@ -1,4 +1,10 @@
 [profile.default]
+src = "contracts/src"
+out = "contracts/out"
+script = "contracts/scripts"
+test = "contracts/test"
+cache_path = "contracts/cache"
+broadcast = "contracts/broadcast"
 optimizer = true
 optimizer_runs = 44444444
 via_ir = true

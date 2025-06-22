@@ -77,44 +77,4 @@ library ClaimDataDecoder {
     amounts = _bytes.decodeUint256Array(5);
     proof = _bytes.decodeBytes32Array(6);
   }
-
-  function decodeClaimRewardsForAccountDataV2ZK(bytes calldata _bytes)
-    internal
-    pure
-    returns (
-      bytes32 campaignId,
-      IKSDistributorV2ZK.RewardsInfo calldata rewardsInfo,
-      bytes32[] calldata proof,
-      address recipient
-    )
-  {
-    assembly ("memory-safe") {
-      campaignId := calldataload(_bytes.offset)
-      rewardsInfo := add(_bytes.offset, calldataload(add(_bytes.offset, 0x20)))
-      recipient := calldataload(add(_bytes.offset, mul(0x20, 3)))
-    }
-    proof = _bytes.decodeBytes32Array(2);
-  }
-
-  function decodeClaimRewardsForERC721DataV2ZK(bytes calldata _bytes)
-    internal
-    pure
-    returns (
-      bytes32 campaignId,
-      IKSDistributorV2ZK.ERC721Info calldata erc721Info,
-      IKSDistributorV2ZK.ZKProof calldata zkProof,
-      IKSDistributorV2ZK.RewardsInfo calldata rewardsInfo,
-      bytes32[] calldata proof,
-      address recipient
-    )
-  {
-    assembly ("memory-safe") {
-      campaignId := calldataload(_bytes.offset)
-      erc721Info := add(_bytes.offset, 0x20)
-      zkProof := add(_bytes.offset, calldataload(add(_bytes.offset, mul(0x20, 4))))
-      rewardsInfo := add(_bytes.offset, calldataload(add(_bytes.offset, mul(0x20, 5))))
-      recipient := calldataload(add(_bytes.offset, mul(0x20, 7)))
-    }
-    proof = _bytes.decodeBytes32Array(3);
-  }
 }

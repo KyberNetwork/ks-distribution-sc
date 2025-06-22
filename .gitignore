@@ -24,3 +24,7 @@ emv-*/
 # Node.js
 node_modules/
 .yarn/install-state.gz
+
+# Cargo
+Cargo.lock
+target/

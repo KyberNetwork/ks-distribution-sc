@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import 'src/KSDistributor.sol';
+import 'contracts/src/KSDistributor.sol';
 
 import {ERC721Mock} from './mocks/ERC721Mock.sol';
 

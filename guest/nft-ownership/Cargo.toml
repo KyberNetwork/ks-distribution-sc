@@ -1,0 +1,14 @@
+[package]
+name = "nft-ownership"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy-primitives = { workspace = true, default-features = false, features = ["rlp", "serde", "std"] }
+alloy-sol-types = { workspace = true }
+risc0-zkvm = { workspace = true, default-features = false, features = ["std"] }
+risc0-op-steel = { workspace = true }
+
+[profile.release]
+debug = 1
+lto = "thin"

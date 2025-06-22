@@ -1,28 +1,41 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.28;
 
-import './interfaces/IKSDistributorV2ZK.sol';
-import './libraries/ClaimDataDecoder.sol';
+import {IKSDistributorV2ZK} from '../interfaces/IKSDistributorV2ZK.sol';
+import {ClaimDataDecoderV2ZK} from '../libraries/ClaimDataDecoderV2ZK.sol';
+import {OpSteelLibrary, OptimismPortal2, Steel} from '../libraries/OpSteelLibrary.sol';
 
-import 'ks-common-sc/base/Management.sol';
-import 'ks-common-sc/base/Rescuable.sol';
+import {ImageID} from './ImageID.sol';
 
-import 'openzeppelin-contracts/contracts/utils/Address.sol';
-import 'openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol';
+import {Management} from 'ks-common-sc/base/Management.sol';
+import {Rescuable} from 'ks-common-sc/base/Rescuable.sol';
 
-import 'openzeppelin-contracts/contracts/utils/SlotDerivation.sol';
-import 'openzeppelin-contracts/contracts/utils/TransientSlot.sol';
+import {Address} from 'openzeppelin-contracts/contracts/utils/Address.sol';
+import {ReentrancyGuard} from 'openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol';
 
-import 'openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol';
-import 'openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol';
+import {SlotDerivation} from 'openzeppelin-contracts/contracts/utils/SlotDerivation.sol';
+import {TransientSlot} from 'openzeppelin-contracts/contracts/utils/TransientSlot.sol';
 
-import 'openzeppelin-contracts/contracts/token/ERC721/IERC721.sol';
+import {MerkleProof} from 'openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol';
+import {SignatureChecker} from
+  'openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol';
 
-contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, Rescuable {
+import {IERC721} from 'openzeppelin-contracts/contracts/token/ERC721/IERC721.sol';
+
+import {IRiscZeroVerifier} from 'risc0/IRiscZeroVerifier.sol';
+
+contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, Rescuable, ImageID {
   using Address for address;
   using SlotDerivation for bytes32;
   using TransientSlot for *;
   using TokenHelper for address;
+
+  struct Journal {
+    Steel.Commitment commitment;
+    address tokenAddress;
+    uint256 tokenId;
+    address account;
+  }
 
   uint256 public constant MIN_CAMPAIGN_DURATION = 1 hours;
 
@@ -30,19 +43,21 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
   bytes32 internal constant PENDING_REWARDS_STORAGE =
     0x667c036918e8dbe38a4ec9003830d89d321fbfffacba5bdecb14c1bbca99be00;
 
-  /// @inheritdoc IKSDistributorV2ZK
-  uint256 public defaultTimeLock;
+  IRiscZeroVerifier public immutable verifier;
 
   /// @notice The L2 portal proxy address for each chain
-  mapping(uint256 chainId => address portalProxy) public portalProxies;
+  mapping(uint256 chainId => address portalProxy) internal portalProxies;
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKState
+  uint256 public defaultTimeLock;
+
+  /// @inheritdoc IKSDistributorV2ZKState
   mapping(bytes32 campaignId => Campaign) public campaigns;
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKState
   mapping(bytes32 campaignId => bytes32) public roots;
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKState
   mapping(bytes32 campaignId => PendingRoot) public pendingRoots;
 
   /// @notice Whether a hook and a selector is whitelisted
@@ -83,9 +98,10 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     address initialAdmin,
     address[] memory initialOperators,
     address[] memory initialGuardians,
-    uint256 initDefaultTimeLock,
-    uint256[] calldata initChainIds,
-    address[] calldata initPortalProxies
+    address initVerifier,
+    uint256[] memory initChainIds,
+    address[] memory initPortalProxies,
+    uint256 initDefaultTimeLock
   ) Management(initialAdmin) {
     for (uint256 i = 0; i < initialOperators.length; i++) {
       _grantRole(KSRoles.OPERATOR_ROLE, initialOperators[i]);
@@ -94,26 +110,16 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
       _grantRole(KSRoles.GUARDIAN_ROLE, initialGuardians[i]);
     }
 
-    _updateDefaultTimeLock(initDefaultTimeLock);
+    verifier = IRiscZeroVerifier(initVerifier);
 
     for (uint256 i = 0; i < initChainIds.length; i++) {
       _updatePortalProxy(initChainIds[i], initPortalProxies[i]);
     }
+
+    _updateDefaultTimeLock(initDefaultTimeLock);
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
-  function updateDefaultTimeLock(uint256 newDefaultTimeLock) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    _updateDefaultTimeLock(newDefaultTimeLock);
-  }
-
-  function _updateDefaultTimeLock(uint256 newDefaultTimeLock) internal {
-    uint256 oldDefaultTimeLock = defaultTimeLock;
-    defaultTimeLock = newDefaultTimeLock;
-
-    emit DefaultTimeLockUpdated(oldDefaultTimeLock, newDefaultTimeLock);
-  }
-
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKAdmin
   function updatePortalProxy(uint256 chainId, address newPortalProxy)
     public
     onlyRole(DEFAULT_ADMIN_ROLE)
@@ -128,7 +134,19 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     emit PortalProxyUpdated(chainId, oldPortalProxy, newPortalProxy);
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKAdmin
+  function updateDefaultTimeLock(uint256 newDefaultTimeLock) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    _updateDefaultTimeLock(newDefaultTimeLock);
+  }
+
+  function _updateDefaultTimeLock(uint256 newDefaultTimeLock) internal {
+    uint256 oldDefaultTimeLock = defaultTimeLock;
+    defaultTimeLock = newDefaultTimeLock;
+
+    emit DefaultTimeLockUpdated(oldDefaultTimeLock, newDefaultTimeLock);
+  }
+
+  /// @inheritdoc IKSDistributorV2ZKOperations
   function createCampaign(
     uint256 initStartTimestamp,
     uint256 initEndTimestamp,
@@ -148,7 +166,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     emit CampaignCreated(campaignId, initStartTimestamp, initEndTimestamp, initMetadata);
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKOperations
   function submitRoot(bytes32 campaignId, bytes32 newRoot, uint256 effectiveTimestamp)
     public
     onlyRole(KSRoles.OPERATOR_ROLE)
@@ -167,12 +185,12 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     emit RootSubmitted(campaignId, newRoot, effectiveTimestamp);
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKAdmin
   function forceUpdateRoot(bytes32 campaignId, bytes32 newRoot) public onlyRole(DEFAULT_ADMIN_ROLE) {
     _applyRoot(campaignId, newRoot);
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKOperations
   function updateStartTimestamp(bytes32 campaignId, uint256 startTimestamp)
     public
     onlyRole(KSRoles.OPERATOR_ROLE)
@@ -183,7 +201,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     emit StartTimestampUpdated(campaignId, oldStartTimestamp, startTimestamp);
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKOperations
   function updateEndTimestamp(bytes32 campaignId, uint256 endTimestamp)
     public
     onlyRole(KSRoles.OPERATOR_ROLE)
@@ -194,7 +212,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     emit EndTimestampUpdated(campaignId, oldEndTimestamp, endTimestamp);
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKOperations
   function updateMetadata(bytes32 campaignId, string calldata metadata)
     public
     onlyRole(KSRoles.OPERATOR_ROLE)
@@ -205,7 +223,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     emit MetadataUpdated(campaignId, oldMetadata, metadata);
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKAdmin
   function updateWhitelistedHooks(
     address[] calldata hooks,
     bytes4[] calldata selectors,
@@ -219,7 +237,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     }
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKState
   function getClaimedAmountForAccount(bytes32 campaignId, address account, address token)
     public
     view
@@ -229,7 +247,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     return claimed[infoHash][token];
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKState
   function getClaimedAmountForERC721(
     bytes32 campaignId,
     ERC721Info calldata erc721Info,
@@ -239,7 +257,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     return claimed[infoHash][token];
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKActions
   function claimRewardsForAccount(
     bytes32 campaignId,
     RewardsInfo calldata rewardsInfo,
@@ -265,13 +283,9 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     _checkPendingRoot(campaignId);
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
+    bytes32 leafHash = keccak256(bytes.concat(keccak256(abi.encode(infoHash, rewardsInfo))));
     bytes32 root = roots[campaignId];
-    require(
-      MerkleProof.verifyCalldata(
-        proof, root, keccak256(bytes.concat(keccak256(abi.encode(infoHash, rewardsInfo))))
-      ),
-      InvalidProof()
-    );
+    require(MerkleProof.verifyCalldata(proof, root, leafHash), InvalidProof());
 
     uint256[] memory claimedAmounts = directTransfer
       ? _transferRewards(infoHash, rewardsInfo, recipient)
@@ -282,7 +296,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     );
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  /// @inheritdoc IKSDistributorV2ZKActions
   function claimRewardsForERC721(
     bytes32 campaignId,
     ERC721Info calldata erc721Info,
@@ -311,14 +325,12 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
   {
     _checkPendingRoot(campaignId);
 
+    _verifyZKProof(erc721Info, zkProof);
+
     bytes32 infoHash = keccak256(abi.encode(campaignId, erc721Info));
+    bytes32 leafHash = keccak256(bytes.concat(keccak256(abi.encode(infoHash, rewardsInfo))));
     bytes32 root = roots[campaignId];
-    require(
-      MerkleProof.verifyCalldata(
-        proof, root, keccak256(bytes.concat(keccak256(abi.encode(infoHash, rewardsInfo))))
-      ),
-      InvalidProof()
-    );
+    require(MerkleProof.verifyCalldata(proof, root, leafHash), InvalidProof());
 
     uint256[] memory claimedAmounts = directTransfer
       ? _transferRewards(infoHash, rewardsInfo, recipient)
@@ -329,7 +341,21 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     );
   }
 
-  /// @inheritdoc IKSDistributorV2ZK
+  function _verifyZKProof(ERC721Info calldata erc721Info, ZKProof calldata zkProof) internal {
+    Journal memory journal = Journal({
+      commitment: zkProof.commitment,
+      tokenAddress: erc721Info.erc721Addr,
+      tokenId: erc721Info.erc721Id,
+      account: _msgSender()
+    });
+
+    OptimismPortal2 portal = OptimismPortal2(portalProxies[erc721Info.chainId]);
+    require(OpSteelLibrary.validateCommitment(portal, zkProof.commitment), InvalidCommitment());
+
+    verifier.verify(zkProof.seal, NFT_OWNERSHIP_ID, sha256(abi.encode(journal)));
+  }
+
+  /// @inheritdoc IKSDistributorV2ZKActions
   function batchClaimRewards(bytes[] calldata datas, address hook, bytes calldata hookData)
     public
     nonReentrant
@@ -362,20 +388,20 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
       if (selector == this.claimRewardsForAccount.selector) {
         (
           bytes32 campaignId,
-          IKSDistributorV2ZK.RewardsInfo calldata rewardsInfo,
+          RewardsInfo calldata rewardsInfo,
           bytes32[] calldata proof,
           address recipient
-        ) = ClaimDataDecoder.decodeClaimRewardsForAccountDataV2ZK(datas[i][4:]);
+        ) = ClaimDataDecoderV2ZK.decodeClaimRewardsForAccountData(datas[i][4:]);
         _claimRewardsForAccount(campaignId, rewardsInfo, proof, recipient, false);
       } else if (selector == this.claimRewardsForERC721.selector) {
         (
           bytes32 campaignId,
-          IKSDistributorV2ZK.ERC721Info calldata erc721Info,
-          IKSDistributorV2ZK.ZKProof calldata zkProof,
-          IKSDistributorV2ZK.RewardsInfo calldata rewardsInfo,
+          ERC721Info calldata erc721Info,
+          ZKProof calldata zkProof,
+          RewardsInfo calldata rewardsInfo,
           bytes32[] calldata proof,
           address recipient
-        ) = ClaimDataDecoder.decodeClaimRewardsForERC721DataV2ZK(datas[i][4:]);
+        ) = ClaimDataDecoderV2ZK.decodeClaimRewardsForERC721Data(datas[i][4:]);
         _claimRewardsForERC721(
           campaignId, erc721Info, zkProof, rewardsInfo, proof, recipient, false
         );

@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = ["apps", "guest", "guest/nft-ownership"]
+exclude = ["lib"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+# Intra-workspace dependencies
+guest = { path = "guest" }
+
+# boundless monorepo dependencies.
+boundless-market = "0.10"
+
+# risc0 monorepo dependencies.
+risc0-build = { version = "2.1", features = ["docker"] }
+risc0-zkvm = { version = "2.1", default-features = false }
+
+# risc0-ethereum dependencies.
+risc0-build-ethereum = { path = "lib/risc0-ethereum/build" }
+risc0-ethereum-contracts = { path = "lib/risc0-ethereum/contracts" }
+risc0-op-steel = { path = "lib/risc0-ethereum/crates/op-steel" }
+
+alloy = "1.0"
+alloy-primitives = { version = "1.0", default-features = false, features = ["rlp", "serde", "std"] }
+alloy-sol-types = "1.0"
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive", "env"] }
+dotenvy = "0.15"
+tokio = "1.45"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2.5"
