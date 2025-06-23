@@ -15,7 +15,7 @@ sol! {
         Commitment commitment;
         address tokenAddress;
         uint256 tokenId;
-        address account;
+        address owner;
     }
 }
 
@@ -24,7 +24,6 @@ fn main() {
     let op_evm_input: OpEvmInput = env::read();
     let token_address: Address = env::read();
     let token_id: U256 = env::read();
-    let account: Address = env::read();
 
     // Create the environment
     let env = op_evm_input.into_env(&OP_MAINNET_CHAIN_SPEC);
@@ -35,16 +34,12 @@ fn main() {
         .call_builder(&call)
         .call();
 
-    // Check if the owner is the account
-    assert!(owner == account);
-    
-
     // Commit the journal
     let journal = Journal {
         commitment: env.into_commitment(),
         tokenAddress: token_address,
         tokenId: token_id,
-        account,
+        owner: owner,
     };
     env::commit_slice(&journal.abi_encode());
 }

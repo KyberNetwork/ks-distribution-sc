@@ -101,10 +101,10 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     address initialAdmin,
     address[] memory initialOperators,
     address[] memory initialGuardians,
-    address initVerifier,
-    uint256[] memory initChainIds,
-    address[] memory initPortalProxies,
-    uint256 initDefaultTimeLock
+    address initialVerifier,
+    uint256[] memory initialChainIds,
+    address[] memory initialPortalProxies,
+    uint256 initialDefaultTimeLock
   ) Management(initialAdmin) {
     for (uint256 i = 0; i < initialOperators.length; i++) {
       _grantRole(KSRoles.OPERATOR_ROLE, initialOperators[i]);
@@ -113,13 +113,13 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
       _grantRole(KSRoles.GUARDIAN_ROLE, initialGuardians[i]);
     }
 
-    verifier = IRiscZeroVerifier(initVerifier);
+    verifier = IRiscZeroVerifier(initialVerifier);
 
-    for (uint256 i = 0; i < initChainIds.length; i++) {
-      _updatePortalProxy(initChainIds[i], initPortalProxies[i]);
+    for (uint256 i = 0; i < initialChainIds.length; i++) {
+      _updatePortalProxy(initialChainIds[i], initialPortalProxies[i]);
     }
 
-    _updateDefaultTimeLock(initDefaultTimeLock);
+    _updateDefaultTimeLock(initialDefaultTimeLock);
   }
 
   /// @inheritdoc IKSDistributorV2ZKAdmin
@@ -328,7 +328,7 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
   {
     _checkPendingRoot(campaignId);
 
-    _verifyZKProof(erc721Info, zkProof);
+    _verifyERC721Ownership(erc721Info, zkProof);
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, erc721Info));
     bytes32 leafHash = keccak256(bytes.concat(keccak256(abi.encode(infoHash, rewardsInfo))));
@@ -344,7 +344,29 @@ contract KSDistributorV2ZK is IKSDistributorV2ZK, ReentrancyGuard, Management, R
     );
   }
 
-  function _verifyZKProof(ERC721Info calldata erc721Info, ZKProof calldata zkProof) internal view {
+  /// @inheritdoc IKSDistributorV2ZKActions
+  function verifyERC721Ownership(ERC721Info calldata erc721Info, ZKProof calldata zkProof)
+    public
+    view
+    returns (bool)
+  {
+    _verifyERC721Ownership(erc721Info, zkProof);
+
+    return true;
+  }
+
+  function _verifyERC721Ownership(ERC721Info calldata erc721Info, ZKProof calldata zkProof)
+    internal
+    view
+  {
+    // If the token is on the same chain, we can verify the ownership directly
+    if (erc721Info.chainId == block.chainid) {
+      require(
+        IERC721(erc721Info.erc721Addr).ownerOf(erc721Info.erc721Id) == _msgSender(),
+        UnauthorizedClaimant(_msgSender())
+      );
+      return;
+    }
     Journal memory journal = Journal({
       commitment: zkProof.commitment,
       tokenAddress: erc721Info.erc721Addr,

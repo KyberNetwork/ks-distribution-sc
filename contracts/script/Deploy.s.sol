@@ -6,10 +6,7 @@ import './Base.s.sol';
 
 contract DeployScript is BaseScript {
   function run() external {
-    uint256 chainId;
-    assembly {
-      chainId := chainid()
-    }
+    uint256 chainId = block.chainid;
     address initialOwner = _readAddress('script/configs/owner.json', chainId);
     address[] memory initialOperators = _readAddressArray('script/configs/operators.json', chainId);
     address[] memory initialGuardians = _readAddressArray('script/configs/guardians.json', chainId);

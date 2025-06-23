@@ -7,7 +7,6 @@ publish = false
 [dependencies]
 alloy = { workspace = true, features = ["signers", "full"] }
 anyhow = { workspace = true }
-boundless-market = { workspace = true }
 clap = { workspace = true }
 dotenvy = { workspace = true }
 guest = { workspace = true }
@@ -16,3 +15,5 @@ tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
+risc0-op-steel = { workspace = true, features = ["host"] }
+risc0-ethereum-contracts = { workspace = true }

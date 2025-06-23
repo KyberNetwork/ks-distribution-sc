@@ -51,4 +51,14 @@ interface IKSDistributorV2ZKActions {
    */
   function batchClaimRewards(bytes[] calldata datas, address hook, bytes calldata hookData)
     external;
+
+  /**
+   * @notice Verifies a ZK proof of ownership for an ERC721 token
+   * @param erc721Info the information of the ERC721 token
+   * @param zkProof the ZK proof
+   */
+  function verifyERC721Ownership(ERC721Info calldata erc721Info, ZKProof calldata zkProof)
+    external
+    view
+    returns (bool);
 }

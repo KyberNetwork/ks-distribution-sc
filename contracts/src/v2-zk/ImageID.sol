@@ -20,5 +20,5 @@ pragma solidity ^0.8.20;
 
 library ImageID {
   bytes32 public constant NFT_OWNERSHIP_ID =
-    bytes32(0xf21f822985f342865e2c854e7cee13b6c1a77d358c2461d302d60180771e60d0);
+    bytes32(0xc975a3ec51df0b78796ad94a1484000fca8b32c0bd07ede334c7f4c5fcca3b89);
 }

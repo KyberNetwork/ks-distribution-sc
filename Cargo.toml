@@ -11,9 +11,6 @@ edition = "2021"
 # Intra-workspace dependencies
 guest = { path = "guest" }
 
-# boundless monorepo dependencies.
-boundless-market = "0.10"
-
 # risc0 monorepo dependencies.
 risc0-build = { version = "2.1", features = ["docker"] }
 risc0-zkvm = { version = "2.1", default-features = false }
