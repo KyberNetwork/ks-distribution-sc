@@ -70,6 +70,9 @@ struct Args {
     /// The ID of the ERC721 token
     #[clap(long, env)]
     token_id: U256,
+    /// The segment limit in powers of 2
+    #[clap(long, env)]
+    segment_limit_po2: u32,
 }
 
 #[tokio::main]
@@ -115,6 +118,7 @@ async fn main() -> Result<()> {
             .write(&op_evm_input)?
             .write(&args.token_address)?
             .write(&args.token_id)?
+            .segment_limit_po2(args.segment_limit_po2)
             .build()
             .unwrap();
 
