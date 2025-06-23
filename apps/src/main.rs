@@ -50,25 +50,25 @@ sol! {
 #[clap(author, version, about, long_about = None)]
 struct Args {
     /// The URL of the L1 RPC endpoint
-    #[clap(short, long, env)]
+    #[clap(long, env)]
     l1_rpc_url: Url,
     /// The URL of the L2 RPC endpoint
-    #[clap(short, long, env)]
+    #[clap(long, env)]
     l2_rpc_url: Url,
     /// The address of the L2 portal proxy
-    #[clap(short, long, env)]
+    #[clap(long, env)]
     l2_portal_proxy: Address,
     /// The address of the verifier
-    #[clap(short, long, env)]
+    #[clap(long, env)]
     verifier: Address,
     /// The address of the distributor
-    #[clap(short, long, env)]
+    #[clap(long, env)]
     distributor: Address,
     /// The address of the ERC721 token
-    #[clap(short, long, env)]
+    #[clap(long, env)]
     token_address: Address,
     /// The ID of the ERC721 token
-    #[clap(short, long, env)]
+    #[clap(long, env)]
     token_id: U256,
 }
 

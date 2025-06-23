@@ -20,5 +20,5 @@ pragma solidity ^0.8.20;
 
 library Elf {
   string public constant NFT_OWNERSHIP_PATH =
-    '/Users/lanhfff/Kyber/ks-distribution-sc/target/riscv-guest/guest/nft-ownership/riscv32im-risc0-zkvm-elf/release/nft-ownership.bin';
+    '/Users/lanhfff/Kyber/ks-distribution-sc/target/rust-analyzer/riscv-guest/guest/nft-ownership/riscv32im-risc0-zkvm-elf/release/nft-ownership.bin';
 }
