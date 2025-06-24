@@ -1076,4 +1076,70 @@ contract KSDistributorTest is Test {
       assertEq(amounts[i] - claimable[i], IERC20(tokens[i]).balanceOf(recipient));
     }
   }
+
+  function testUpdateStartTimestampForNonExistentCampaignShouldRevert() public {
+    bytes32 nonExistentCampaignId = bytes32(uint256(0x123456789));
+    uint256 newStartTimestamp = block.timestamp + 1 days;
+
+    vm.prank(operator);
+    vm.expectRevert(
+      abi.encodeWithSelector(IKSDistributor.CampaignDoesNotExist.selector, nonExistentCampaignId)
+    );
+    distributor.updateStartTimestamp(nonExistentCampaignId, newStartTimestamp);
+  }
+
+  function testUpdateEndTimestampForNonExistentCampaignShouldRevert() public {
+    bytes32 nonExistentCampaignId = bytes32(uint256(0x987654321));
+    uint256 newEndTimestamp = block.timestamp + 2 days;
+
+    vm.prank(operator);
+    vm.expectRevert(
+      abi.encodeWithSelector(IKSDistributor.CampaignDoesNotExist.selector, nonExistentCampaignId)
+    );
+    distributor.updateEndTimestamp(nonExistentCampaignId, newEndTimestamp);
+  }
+
+  function testUpdateMetadataForNonExistentCampaignShouldRevert() public {
+    bytes32 nonExistentCampaignId = bytes32(uint256(0xabcdef123));
+    string memory newMetadata = 'updated metadata';
+
+    vm.prank(operator);
+    vm.expectRevert(
+      abi.encodeWithSelector(IKSDistributor.CampaignDoesNotExist.selector, nonExistentCampaignId)
+    );
+    distributor.updateMetadata(nonExistentCampaignId, newMetadata);
+  }
+
+  function testUpdateCampaignDetailsForExistingCampaignShouldSucceed() public {
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(123);
+
+    // Test update start timestamp
+    uint256 newStartTimestamp = block.timestamp + 2 hours;
+    vm.prank(operator);
+    vm.expectEmit(true, false, false, true);
+    emit IKSDistributor.StartTimestampUpdated(
+      campaignId, campaign.startTimestamp, newStartTimestamp
+    );
+    distributor.updateStartTimestamp(campaignId, newStartTimestamp);
+    (uint256 actualStartTimestamp,,) = distributor.campaigns(campaignId);
+    assertEq(actualStartTimestamp, newStartTimestamp);
+
+    // Test update end timestamp
+    uint256 newEndTimestamp = block.timestamp + 3 days;
+    vm.prank(operator);
+    vm.expectEmit(true, false, false, true);
+    emit IKSDistributor.EndTimestampUpdated(campaignId, campaign.endTimestamp, newEndTimestamp);
+    distributor.updateEndTimestamp(campaignId, newEndTimestamp);
+    (, uint256 actualEndTimestamp,) = distributor.campaigns(campaignId);
+    assertEq(actualEndTimestamp, newEndTimestamp);
+
+    // Test update metadata
+    string memory newMetadata = 'completely new metadata';
+    vm.prank(operator);
+    vm.expectEmit(true, false, false, true);
+    emit IKSDistributor.MetadataUpdated(campaignId, 'metadata', newMetadata);
+    distributor.updateMetadata(campaignId, newMetadata);
+    (,, string memory actualMetadata) = distributor.campaigns(campaignId);
+    assertEq(actualMetadata, newMetadata);
+  }
 }
