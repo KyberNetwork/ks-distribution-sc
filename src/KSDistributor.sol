@@ -7,13 +7,13 @@ import './libraries/CalldataDecoder.sol';
 import 'ks-growth-utils-sc/KSRescueV2.sol';
 
 import 'openzeppelin-contracts/utils/Address.sol';
-import 'openzeppelin-contracts/utils/ReentrancyGuard.sol';
+import 'openzeppelin-contracts/utils/ReentrancyGuardTransient.sol';
 
 import 'openzeppelin-contracts/utils/SlotDerivation.sol';
 import 'openzeppelin-contracts/utils/TransientSlot.sol';
 import 'openzeppelin-contracts/utils/cryptography/MerkleProof.sol';
 
-contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
+contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
   using SafeERC20 for IERC20;
   using Address for address;
   using SlotDerivation for bytes32;
@@ -53,6 +53,11 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   modifier onlyBetween(uint256 startTimestamp, uint256 endTimestamp) {
     require(block.timestamp >= startTimestamp, TooEarly());
     require(block.timestamp < endTimestamp, TooLate());
+    _;
+  }
+
+  modifier campaignExists(bytes32 campaignId) {
+    require(campaigns[campaignId].startTimestamp != 0, CampaignDoesNotExist(campaignId));
     _;
   }
 
@@ -128,7 +133,11 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function updateStartTimestamp(bytes32 campaignId, uint256 startTimestamp) public onlyOperator {
+  function updateStartTimestamp(bytes32 campaignId, uint256 startTimestamp)
+    public
+    onlyOperator
+    campaignExists(campaignId)
+  {
     uint256 oldStartTimestamp = campaigns[campaignId].startTimestamp;
     campaigns[campaignId].startTimestamp = startTimestamp;
 
@@ -136,15 +145,23 @@ contract KSDistributor is IKSDistributor, ReentrancyGuard, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function updateEndTimestamp(bytes32 campaignId, uint256 endTimestamp) public onlyOperator {
+  function updateEndTimestamp(bytes32 campaignId, uint256 endTimestamp)
+    public
+    onlyOperator
+    campaignExists(campaignId)
+  {
     uint256 oldEndTimestamp = campaigns[campaignId].endTimestamp;
-    campaigns[campaignId].startTimestamp = endTimestamp;
+    campaigns[campaignId].endTimestamp = endTimestamp;
 
     emit EndTimestampUpdated(campaignId, oldEndTimestamp, endTimestamp);
   }
 
   /// @inheritdoc IKSDistributor
-  function updateMetadata(bytes32 campaignId, string calldata metadata) public onlyOperator {
+  function updateMetadata(bytes32 campaignId, string calldata metadata)
+    public
+    onlyOperator
+    campaignExists(campaignId)
+  {
     string memory oldMetadata = campaigns[campaignId].metadata;
     campaigns[campaignId].metadata = metadata;
 

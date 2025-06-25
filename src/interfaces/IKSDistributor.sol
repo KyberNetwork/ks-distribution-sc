@@ -55,6 +55,9 @@ interface IKSDistributor {
   /// @notice Thrown when the campaign has too short duration
   error TooShortDuration();
 
+  /// @notice Thrown when the campaign does not exist
+  error CampaignDoesNotExist(bytes32 campaignId);
+
   /// @notice Thrown when a campaign already exists
   error CampaignAlreadyExists(bytes32 campaignId);
 
