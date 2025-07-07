@@ -29,23 +29,10 @@ contract UpdateHooks is BaseScript {
     address distributor =
       _readAddress(string(abi.encodePacked(root, '/script/configs/distributor.json')), chainId);
 
-    string memory profile = vm.envString('FOUNDRY_PROFILE');
-
-    if (keccak256(abi.encodePacked((profile))) == keccak256(abi.encodePacked(('pre-release')))) {
-      (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
-        _readHooks(string(abi.encodePacked(root, '/script/configs/hooks-pre.json')), chainId);
-    } else {
-      (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
-        _readHooks(string(abi.encodePacked(root, '/script/configs/hooks.json')), chainId);
-    }
-
     (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
       _readHooks(string(abi.encodePacked(root, '/script/configs/hooks.json')), chainId);
 
     vm.startBroadcast(initialOwner);
-    KSDistributor newDistributor =
-      new KSDistributor(initialOwner, _toArray(initialOwner), _toArray(initialOwner), 86_400);
-    distributor = address(newDistributor);
 
     for (uint256 i = 0; i < hookAddresses.length; i++) {
       bool curStatus =
@@ -74,7 +61,7 @@ contract UpdateHooks is BaseScript {
     }
 
     if (disableHookAddresses.length != 0) {
-      console.log('disabling hooks:');
+      console.log('Disabling hooks:');
       for (uint256 i = 0; i < disableHookAddresses.length; i++) {
         console.log('Address:', disableHookAddresses[i]);
         console.logBytes4(disableHookFuncSelectors[i]);
