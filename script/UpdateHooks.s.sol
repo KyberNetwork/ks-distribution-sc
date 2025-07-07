@@ -25,24 +25,35 @@ contract UpdateHooks is BaseScript {
       chainId := chainid()
     }
 
+    address initialOwner = _readAddress('script/configs/owner.json', chainId);
     address distributor =
       _readAddress(string(abi.encodePacked(root, '/script/configs/distributor.json')), chainId);
+
+    string memory profile = vm.envString('FOUNDRY_PROFILE');
+
+    if (keccak256(abi.encodePacked((profile))) == keccak256(abi.encodePacked(('pre-release')))) {
+      (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
+        _readHooks(string(abi.encodePacked(root, '/script/configs/hooks-pre.json')), chainId);
+    } else {
+      (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
+        _readHooks(string(abi.encodePacked(root, '/script/configs/hooks.json')), chainId);
+    }
 
     (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
       _readHooks(string(abi.encodePacked(root, '/script/configs/hooks.json')), chainId);
 
-    vm.startBroadcast();
+    vm.startBroadcast(initialOwner);
     for (uint256 i = 0; i < hookAddresses.length; i++) {
       bool curStatus =
-        KSDistributor(distributor).whitelistedHooks(hookAddresses[i], bytes4(hookFuncSelectors[i]));
+        KSDistributor(distributor).whitelistedHooks(hookAddresses[i], hookFuncSelectors[i]);
 
       if (hookStatuses[i] != curStatus) {
         if (hookStatuses[i]) {
           enableHookAddresses.push(hookAddresses[i]);
-          enableHookFuncSelectors.push(bytes4(hookFuncSelectors[i]));
+          enableHookFuncSelectors.push(hookFuncSelectors[i]);
         } else {
           disableHookAddresses.push(hookAddresses[i]);
-          disableHookFuncSelectors.push(bytes4(hookFuncSelectors[i]));
+          disableHookFuncSelectors.push(hookFuncSelectors[i]);
         }
       }
     }
