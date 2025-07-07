@@ -44,7 +44,7 @@ contract KSDistributorTest is Test {
   function setUp() public {
     vm.warp(1e18);
     _setUpKSDistributor();
-    _setUpHooks();
+    // _setUpHooks(); already done in contructor
     _setUpTokens();
     _setUpLabels();
   }
@@ -719,7 +719,17 @@ contract KSDistributorTest is Test {
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
-    distributor = new KSDistributorHarness(owner, initialOperators, initialGuardians, 3 hours);
+
+    swapHook = address(new SwapMock());
+    address[] memory hooks = new address[](2);
+    bytes4[] memory selectors = new bytes4[](2);
+    hooks[0] = swapHook;
+    hooks[1] = swapHook;
+    selectors[0] = SwapMock.batch.selector;
+    selectors[1] = SwapMock.swap.selector;
+
+    distributor =
+      new KSDistributorHarness(owner, initialOperators, initialGuardians, hooks, selectors, 3 hours);
   }
 
   function _setUpHooks() internal {
