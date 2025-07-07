@@ -113,6 +113,8 @@ contract GenerateMerkleTreeTest is Test {
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
-    distributor = new KSDistributor(owner, initialOperators, initialGuardians, 1 hours);
+    distributor = new KSDistributor(
+      owner, initialOperators, initialGuardians, new address[](0), new bytes4[](0), 1 hours
+    );
   }
 }
