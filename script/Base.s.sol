@@ -7,6 +7,13 @@ import 'forge-std/StdJson.sol';
 contract BaseScript is Script {
   using stdJson for string;
 
+  struct Hook {
+    address contractAddress;
+    bytes funcSelector;
+    string name;
+    bool status;
+  }
+
   function _readAddress(string memory path, uint256 chainId) internal view returns (address) {
     string memory json = vm.readFile(path);
     return json.readAddress(string.concat('.', vm.toString(chainId)));
@@ -64,5 +71,38 @@ contract BaseScript is Script {
     }
     vm.serializeJson(path, _getJsonString(path));
     vm.writeJson(path.serialize(vm.toString(chainId), value), path);
+  }
+
+  function _readHooks(string memory path, uint256 chainId)
+    internal
+    view
+    returns (
+      address[] memory addresses,
+      bytes4[] memory funcSelectors,
+      bool[] memory statuses,
+      string[] memory names
+    )
+  {
+    string memory json = vm.readFile(path);
+    bytes memory data = json.parseRaw(string.concat('.', vm.toString(chainId)));
+    Hook[] memory hooks = abi.decode(data, (Hook[]));
+
+    addresses = new address[](hooks.length);
+    funcSelectors = new bytes4[](hooks.length);
+    statuses = new bool[](hooks.length);
+    names = new string[](hooks.length);
+
+    for (uint256 i; i < hooks.length; i++) {
+      addresses[i] = hooks[i].contractAddress;
+      funcSelectors[i] = bytes4(hooks[i].funcSelector);
+      statuses[i] = hooks[i].status;
+      names[i] = hooks[i].name;
+    }
+  }
+
+  function _toArray(address addr) internal pure returns (address[] memory) {
+    address[] memory arr = new address[](1);
+    arr[0] = addr;
+    return arr;
   }
 }
