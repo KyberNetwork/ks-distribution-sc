@@ -43,6 +43,10 @@ contract UpdateHooks is BaseScript {
       _readHooks(string(abi.encodePacked(root, '/script/configs/hooks.json')), chainId);
 
     vm.startBroadcast(initialOwner);
+    KSDistributor newDistributor =
+      new KSDistributor(initialOwner, _toArray(initialOwner), _toArray(initialOwner), 86_400);
+    distributor = address(newDistributor);
+
     for (uint256 i = 0; i < hookAddresses.length; i++) {
       bool curStatus =
         KSDistributor(distributor).whitelistedHooks(hookAddresses[i], hookFuncSelectors[i]);

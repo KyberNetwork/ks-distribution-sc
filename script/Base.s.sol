@@ -11,7 +11,7 @@ contract BaseScript is Script {
     address contractAddress;
     bytes funcSelector;
     string name;
-    bytes32 status;
+    bool status;
   }
 
   function _readAddress(string memory path, uint256 chainId) internal view returns (address) {
@@ -95,8 +95,14 @@ contract BaseScript is Script {
     for (uint256 i; i < hooks.length; i++) {
       addresses[i] = hooks[i].contractAddress;
       funcSelectors[i] = bytes4(hooks[i].funcSelector);
-      statuses[i] = uint256(hooks[i].status) & 1 == 1; // Convert bytes32 to bool
+      statuses[i] = hooks[i].status;
       names[i] = hooks[i].name;
     }
+  }
+
+  function _toArray(address addr) internal pure returns (address[] memory) {
+    address[] memory arr = new address[](1);
+    arr[0] = addr;
+    return arr;
   }
 }
