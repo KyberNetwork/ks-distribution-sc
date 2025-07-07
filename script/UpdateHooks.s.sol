@@ -19,18 +19,16 @@ contract UpdateHooks is BaseScript {
   bytes4[] disableHookFuncSelectors;
 
   function run() external {
-    string memory root = vm.projectRoot();
     uint256 chainId;
     assembly {
       chainId := chainid()
     }
 
     address initialOwner = _readAddress('script/configs/owner.json', chainId);
-    address distributor =
-      _readAddress(string(abi.encodePacked(root, '/script/configs/distributor.json')), chainId);
+    address distributor = _readAddress('script/configs/distributor.json', chainId);
 
     (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
-      _readHooks(string(abi.encodePacked(root, '/script/configs/hooks.json')), chainId);
+      _readHooks('script/configs/hooks.json', chainId);
 
     vm.startBroadcast(initialOwner);
 

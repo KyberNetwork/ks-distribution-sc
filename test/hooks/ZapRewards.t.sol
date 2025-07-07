@@ -39,14 +39,13 @@ contract ZapRewardsTest is Test {
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
-    distributor = new KSDistributor(owner, initialOperators, initialGuardians, 0);
 
-    vm.prank(owner);
     address[] memory hooks = new address[](1);
     hooks[0] = address(zapRouter);
     bytes4[] memory selectors = new bytes4[](1);
     selectors[0] = IKSZapRouter.zap.selector;
-    distributor.updateWhitelistedHooks(hooks, selectors, true);
+
+    distributor = new KSDistributor(owner, initialOperators, initialGuardians, hooks, selectors, 0);
 
     deal(weth, address(distributor), wethAmount);
     deal(usdc, address(distributor), usdcAmount);

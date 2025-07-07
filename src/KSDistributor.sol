@@ -65,6 +65,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
     address initialOwner,
     address[] memory initialOperators,
     address[] memory initialGuardians,
+    address[] memory initialWhitelistedHooks,
+    bytes4[] memory initialSelectors,
     uint256 initDefaultTimeLock
   ) Ownable(initialOwner) {
     for (uint256 i = 0; i < initialOperators.length; i++) {
@@ -77,6 +79,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
 
       emit UpdateGuardian(initialGuardians[i], true);
     }
+
+    _updateWhitelistedHooks(initialWhitelistedHooks, initialSelectors, true);
 
     _updateDefaultTimeLock(initDefaultTimeLock);
   }
@@ -174,6 +178,14 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
     bytes4[] calldata selectors,
     bool grantOrRevoke
   ) public onlyOwner {
+    _updateWhitelistedHooks(hooks, selectors, grantOrRevoke);
+  }
+
+  function _updateWhitelistedHooks(
+    address[] memory hooks,
+    bytes4[] memory selectors,
+    bool grantOrRevoke
+  ) internal {
     require(hooks.length == selectors.length, InvalidLengths());
     for (uint256 i = 0; i < hooks.length; i++) {
       whitelistedHooks[hooks[i]][selectors[i]] = grantOrRevoke;

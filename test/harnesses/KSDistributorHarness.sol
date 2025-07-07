@@ -8,8 +8,19 @@ contract KSDistributorHarness is KSDistributor {
     address initialOwner,
     address[] memory initialOperators,
     address[] memory initialGuardians,
+    address[] memory initialWhitelistedHooks,
+    bytes4[] memory initialSelectors,
     uint256 initDefaultTimeLock
-  ) KSDistributor(initialOwner, initialOperators, initialGuardians, initDefaultTimeLock) {}
+  )
+    KSDistributor(
+      initialOwner,
+      initialOperators,
+      initialGuardians,
+      initialWhitelistedHooks,
+      initialSelectors,
+      initDefaultTimeLock
+    )
+  {}
 
   function addPendingReward(address recipient, address token, uint256 amount) public {
     _addPendingReward(recipient, token, amount);
