@@ -9,7 +9,6 @@ contract DeployScript is BaseScript {
   bytes4[] enableHookFuncSelectors;
 
   function run() external {
-    string memory root = vm.projectRoot();
     uint256 chainId;
     assembly {
       chainId := chainid()
@@ -18,7 +17,7 @@ contract DeployScript is BaseScript {
     address[] memory initialOperators = _readAddressArray('script/configs/operators.json', chainId);
     address[] memory initialGuardians = _readAddressArray('script/configs/guardians.json', chainId);
     (address[] memory hookAddresses, bytes4[] memory hookFuncSelectors, bool[] memory hookStatuses,)
-    = _readHooks(string(abi.encodePacked(root, '/script/configs/hooks.json')), chainId);
+    = _readHooks('script/configs/hooks.json', chainId);
 
     for (uint256 i = 0; i < hookAddresses.length; i++) {
       if (hookStatuses[i]) {
