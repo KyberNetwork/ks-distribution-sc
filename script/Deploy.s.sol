@@ -7,12 +7,16 @@ import './Base.s.sol';
 contract DeployScript is BaseScript {
   address[] enableHookAddresses;
   bytes4[] enableHookFuncSelectors;
+  string internal _releaseVersion;
 
   function run() external {
     uint256 chainId;
     assembly {
       chainId := chainid()
     }
+
+    require(bytes(_releaseVersion).length > 0, 'Release version not set');
+
     address initialOwner = _readAddress('script/configs/owner.json', chainId);
     address[] memory initialOperators = _readAddressArray('script/configs/operators.json', chainId);
     address[] memory initialGuardians = _readAddressArray('script/configs/guardians.json', chainId);
@@ -26,15 +30,22 @@ contract DeployScript is BaseScript {
       }
     }
     vm.startBroadcast();
-    KSDistributor distributor = new KSDistributor(
-      initialOwner,
-      initialOperators,
-      initialGuardians,
-      enableHookAddresses,
-      enableHookFuncSelectors,
-      1 days
+    bytes32 salt = keccak256(bytes(_releaseVersion));
+    bytes memory bytecode = abi.encodePacked(
+      type(KSDistributor).creationCode,
+      abi.encode(
+        initialOwner,
+        initialOperators,
+        initialGuardians,
+        enableHookAddresses,
+        enableHookFuncSelectors,
+        1 days
+      )
     );
-    _writeAddress('script/configs/distributor.json', chainId, address(distributor));
+
+    address distributor = _deployContract(salt, bytecode);
+
+    _writeAddress('script/configs/distributor.json', chainId, distributor);
     vm.stopBroadcast();
   }
 }
