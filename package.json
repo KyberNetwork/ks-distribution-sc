@@ -1,6 +1,10 @@
 {
   "name": "ks-distribution-sc",
   "packageManager": "yarn@4.7.0",
+  "scripts": {
+    "generate-merkle": "ts-node script/generate-merkle-tree.ts",
+    "compare-campaigns": "ts-node script/compare-campaigns.ts"
+  },
   "dependencies": {
     "@metamask/abi-utils": "^3.0.0",
     "@openzeppelin/merkle-tree": "^1.0.8",
