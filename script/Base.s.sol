@@ -4,8 +4,13 @@ pragma solidity ^0.8.0;
 import 'forge-std/Script.sol';
 import 'forge-std/StdJson.sol';
 
+import 'openzeppelin-contracts/utils/Address.sol';
+
 contract BaseScript is Script {
   using stdJson for string;
+  using Address for address;
+
+  address constant CREATE3_FACTORY = address(0xc7c662Fc760FE1d5cB97fd8A68cb43A046da3F7d);
 
   struct Hook {
     address contractAddress;
@@ -104,5 +109,20 @@ contract BaseScript is Script {
     address[] memory arr = new address[](1);
     arr[0] = addr;
     return arr;
+  }
+
+  /**
+   * @notice Deploy a contract using CREATE3
+   * @param creationCode the creation code of the contract
+   * @param salt the salt to deploy the contract with
+   */
+  function _deployContract(bytes32 salt, bytes memory creationCode)
+    internal
+    returns (address deployed)
+  {
+    bytes memory result = CREATE3_FACTORY.functionCall(
+      abi.encodeWithSignature('deploy(bytes32,bytes)', salt, creationCode)
+    );
+    deployed = abi.decode(result, (address));
   }
 }
