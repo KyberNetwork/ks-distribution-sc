@@ -7,6 +7,8 @@ import './Base.s.sol';
 contract DeployScript is BaseScript {
   address[] enableHookAddresses;
   bytes4[] enableHookFuncSelectors;
+
+  string internal _contractName = 'KSDistributor';
   string internal _releaseVersion;
 
   function run() external {
@@ -29,10 +31,11 @@ contract DeployScript is BaseScript {
         enableHookFuncSelectors.push(hookFuncSelectors[i]);
       }
     }
+
     vm.startBroadcast();
-    bytes32 salt = keccak256(bytes(_releaseVersion));
+    bytes32 salt = keccak256(bytes(string.concat(_contractName, '_', _releaseVersion)));
     bytes memory bytecode = abi.encodePacked(
-      type(KSDistributor).creationCode,
+      vm.getCode(_contractName),
       abi.encode(
         initialOwner,
         initialOperators,
