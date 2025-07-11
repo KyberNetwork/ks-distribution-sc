@@ -171,8 +171,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
 
     emit MetadataUpdated(campaignId, oldMetadata, metadata);
   }
-  /// @inheritdoc IKSDistributor
 
+  /// @inheritdoc IKSDistributor
   function updateWhitelistedHooks(
     address[] calldata hooks,
     bytes4[] calldata selectors,
