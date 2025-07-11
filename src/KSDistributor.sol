@@ -116,6 +116,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
   function submitRoot(bytes32 campaignId, bytes32 newRoot, uint256 effectiveTimestamp)
     public
     onlyOperator
+    campaignExists(campaignId)
   {
     if (effectiveTimestamp == 0) {
       effectiveTimestamp = block.timestamp + defaultTimeLock;
@@ -132,7 +133,11 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
   }
 
   /// @inheritdoc IKSDistributor
-  function forceUpdateRoot(bytes32 campaignId, bytes32 newRoot) public onlyOwner {
+  function forceUpdateRoot(bytes32 campaignId, bytes32 newRoot)
+    public
+    onlyOwner
+    campaignExists(campaignId)
+  {
     _applyRoot(campaignId, newRoot);
   }
 
@@ -142,6 +147,10 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
     onlyOperator
     campaignExists(campaignId)
   {
+    require(
+      startTimestamp + MIN_CAMPAIGN_DURATION <= campaigns[campaignId].endTimestamp,
+      TooShortDuration()
+    );
     uint256 oldStartTimestamp = campaigns[campaignId].startTimestamp;
     campaigns[campaignId].startTimestamp = startTimestamp;
 
@@ -154,6 +163,10 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
     onlyOperator
     campaignExists(campaignId)
   {
+    require(
+      campaigns[campaignId].startTimestamp + MIN_CAMPAIGN_DURATION <= endTimestamp,
+      TooShortDuration()
+    );
     uint256 oldEndTimestamp = campaigns[campaignId].endTimestamp;
     campaigns[campaignId].endTimestamp = endTimestamp;
 
