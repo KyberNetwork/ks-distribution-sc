@@ -126,7 +126,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
         && effectiveTimestamp < campaigns[campaignId].endTimestamp,
       InvalidEffectiveTimestamp()
     );
-    _checkPendingRoot(campaignId);
+    _getLatestRoot(campaignId);
     pendingRoots[campaignId] = PendingRoot(newRoot, effectiveTimestamp);
 
     emit RootSubmitted(campaignId, newRoot, effectiveTimestamp);
@@ -262,7 +262,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
     bool directTransfer
   ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
-    _checkPendingRoot(campaignId);
+    _getLatestRoot(campaignId);
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
     bytes32 root = roots[campaignId];
@@ -324,7 +324,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
     bool directTransfer
   ) internal onlyBetween(campaigns[campaignId].startTimestamp, campaigns[campaignId].endTimestamp) {
     require(tokens.length == amounts.length, InvalidLengths());
-    _checkPendingRoot(campaignId);
+    _getLatestRoot(campaignId);
 
     address msgSender = _msgSender();
     require(msgSender == IERC721(erc721Addr).ownerOf(erc721Id), UnauthorizedClaimant(msgSender));
@@ -362,7 +362,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, KSRescueV2 {
     _callHook(hook, hookData);
   }
 
-  function _checkPendingRoot(bytes32 campaignId) internal {
+  function _getLatestRoot(bytes32 campaignId) internal {
     bytes32 pendingRoot = pendingRoots[campaignId].root;
     if (pendingRoot != bytes32(0)) {
       if (pendingRoots[campaignId].effectiveTimestamp <= block.timestamp) {
