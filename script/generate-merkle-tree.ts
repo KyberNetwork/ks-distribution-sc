@@ -2,7 +2,6 @@ import { SimpleMerkleTree } from "@openzeppelin/merkle-tree";
 import { HexString } from "@openzeppelin/merkle-tree/dist/bytes";
 import { keccak256 } from "@openzeppelin/merkle-tree/dist/hashes";
 import { encode } from "@metamask/abi-utils";
-import { campaignsData } from "./input/campaigns-data.json";
 import * as fs from "node:fs";
 import { BigNumber } from "ethers";
 
@@ -16,9 +15,11 @@ interface Leaf {
 }
 
 interface Campaign {
+  campaignId: string;
   startTimestamp: string;
   endTimestamp: string;
   metadata: string;
+  salt: string;
   leaves: Leaf[];
 }
 
@@ -38,7 +39,27 @@ function leafHash(campaignId: string, leaf: Leaf): HexString {
   return keccak256(keccak256(encode(types, values)));
 }
 
-campaignsData.forEach((campaign) => {
+// Get input file path from command line arguments, default to campaigns-data.json
+const inputFilePath = process.argv[2] || "./script/input/campaigns-data.json";
+
+// Check if file exists
+if (!fs.existsSync(inputFilePath)) {
+  console.error(`Error: Input file ${inputFilePath} does not exist`);
+  process.exit(1);
+}
+
+// Read and parse the campaigns data
+let campaignsData: Campaign[];
+try {
+  const fileContent = fs.readFileSync(inputFilePath, 'utf-8');
+  const parsedData = JSON.parse(fileContent);
+  campaignsData = parsedData.campaignsData || parsedData;
+} catch (error) {
+  console.error(`Error reading or parsing input file: ${error}`);
+  process.exit(1);
+}
+
+campaignsData.forEach((campaign: Campaign) => {
   let campaignIdBN = BigNumber.from(campaign.campaignId);
   let campaignId: string;
   if (campaignIdBN.isZero()) {
@@ -61,13 +82,14 @@ campaignsData.forEach((campaign) => {
     const proof = tree.getProof(leafHashes[index]);
     userDatas.push({ leaf, proof });
     leaf.tokens.forEach((token, index) => {
-      if (totalAmounts[token] === undefined) {
-        totalAmounts[token] = "0";
+      const normalizedToken = token.toLowerCase();
+      if (totalAmounts[normalizedToken] === undefined) {
+        totalAmounts[normalizedToken] = "0";
       }
       // Safely add using string manipulation to avoid BigNumber overflow
-      const currentBN = BigNumber.from(totalAmounts[token]);
+      const currentBN = BigNumber.from(totalAmounts[normalizedToken]);
       const amountBN = BigNumber.from(leaf.amounts[index]);
-      totalAmounts[token] = currentBN.add(amountBN).toString();
+      totalAmounts[normalizedToken] = currentBN.add(amountBN).toString();
     });
   });
 

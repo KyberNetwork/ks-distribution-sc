@@ -42,7 +42,7 @@ contract DeployScript is BaseScript {
         initialGuardians,
         enableHookAddresses,
         enableHookFuncSelectors,
-        1 days
+        2 hours
       )
     );
 
