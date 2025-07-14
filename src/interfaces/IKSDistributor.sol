@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import {IERC20} from 'openzeppelin-contracts/token/ERC20/IERC20.sol';
-
 interface IKSDistributor {
   /// @notice Emitted when a new campaign is created
   event CampaignCreated(
@@ -144,6 +142,7 @@ interface IKSDistributor {
    * @param startTimestamp the start timestamp of the campaign
    * @param endTimestamp the end timestamp of the campaign
    * @param metadata the metadata of the campaign
+   * @param salt the salt for campaignId creation
    * @return campaignId the unique id of the campaign
    */
   function createCampaign(

@@ -173,10 +173,11 @@ contract KSDistributorTest is Test {
 
   function testUpdateEndTimestampShouldEmitsEvent() public {
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(100);
+    uint256 newEndTimestamp = campaign.startTimestamp + 2 hours; // Valid end timestamp
     vm.startPrank(operator);
     vm.expectEmit(address(distributor));
-    emit IKSDistributor.EndTimestampUpdated(campaignId, campaign.endTimestamp, 0);
-    distributor.updateEndTimestamp(campaignId, 0);
+    emit IKSDistributor.EndTimestampUpdated(campaignId, campaign.endTimestamp, newEndTimestamp);
+    distributor.updateEndTimestamp(campaignId, newEndTimestamp);
   }
 
   function testOnlyOperatorCanUpdateMetadata() public {
