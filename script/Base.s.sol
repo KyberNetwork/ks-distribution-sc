@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import 'forge-std/Script.sol';
 import 'forge-std/StdJson.sol';
 
-import 'openzeppelin-contracts/utils/Address.sol';
+import 'openzeppelin-contracts/contracts/utils/Address.sol';
 
 contract BaseScript is Script {
   using stdJson for string;

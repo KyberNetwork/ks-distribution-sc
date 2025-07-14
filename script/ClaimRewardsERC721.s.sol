@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import '../src/KSDistributor.sol';
 import './Base.s.sol';
-import 'openzeppelin-contracts/token/ERC721/ERC721.sol';
+import 'openzeppelin-contracts/contracts/token/ERC721/ERC721.sol';
 
 contract ClaimRewardsERC721Script is BaseScript {
   using stdJson for string;

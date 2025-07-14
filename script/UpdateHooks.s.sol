@@ -24,13 +24,13 @@ contract UpdateHooks is BaseScript {
       chainId := chainid()
     }
 
-    address initialOwner = _readAddress('script/configs/owner.json', chainId);
+    address initialAdmin = _readAddress('script/configs/admin.json', chainId);
     address distributor = _readAddress('script/configs/distributor.json', chainId);
 
     (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
       _readHooks('script/configs/hooks.json', chainId);
 
-    vm.startBroadcast(initialOwner);
+    vm.startBroadcast(initialAdmin);
 
     for (uint256 i = 0; i < hookAddresses.length; i++) {
       bool curStatus =

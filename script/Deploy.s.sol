@@ -19,7 +19,7 @@ contract DeployScript is BaseScript {
 
     require(bytes(_releaseVersion).length > 0, 'Release version not set');
 
-    address initialOwner = _readAddress('script/configs/owner.json', chainId);
+    address initialAdmin = _readAddress('script/configs/admin.json', chainId);
     address[] memory initialOperators = _readAddressArray('script/configs/operators.json', chainId);
     address[] memory initialGuardians = _readAddressArray('script/configs/guardians.json', chainId);
     (address[] memory hookAddresses, bytes4[] memory hookFuncSelectors, bool[] memory hookStatuses,)
@@ -37,7 +37,7 @@ contract DeployScript is BaseScript {
     bytes memory bytecode = abi.encodePacked(
       vm.getCode(_contractName),
       abi.encode(
-        initialOwner,
+        initialAdmin,
         initialOperators,
         initialGuardians,
         enableHookAddresses,
