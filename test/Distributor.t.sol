@@ -297,7 +297,7 @@ contract KSDistributorTest is Test {
     _claimAndVerifyRewards(campaignId, amountSeed * 2, leaves, nft0, false);
   }
 
-  function testOnlyERC721AdminCanClaimRewardsForERC721() public {
+  function testOnlyERC721OwnerCanClaimRewardsForERC721() public {
     uint256 seed = 1e18;
     uint256 size = 10;
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(seed);
