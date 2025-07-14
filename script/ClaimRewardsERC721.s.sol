@@ -37,7 +37,7 @@ contract ClaimRewardsERC721Script is BaseScript {
       console.log('\tAmount:', amounts[i]);
     }
 
-    address distributor = _readAddress('script/configs/distributor.json', chainId);
+    address payable distributor = payable(_readAddress('script/configs/distributor.json', chainId));
     address claimant = IERC721(erc721Addr).ownerOf(erc721Id);
 
     vm.startBroadcast(claimant);

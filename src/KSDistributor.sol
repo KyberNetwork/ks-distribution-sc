@@ -75,6 +75,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, Management {
     _updateDefaultTimeLock(initDefaultTimeLock);
   }
 
+  receive() external payable {}
+
   /// @inheritdoc IKSDistributor
   function updateDefaultTimeLock(uint256 newDefaultTimeLock) public onlyRole(DEFAULT_ADMIN_ROLE) {
     _updateDefaultTimeLock(newDefaultTimeLock);
@@ -259,7 +261,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, Management {
     require(tokens.length == amounts.length, InvalidLengths());
 
     bytes32 root = _getLatestRoot(campaignId);
-    bytes32 infoHash = keccak256(abi.encode(campaignId, _msgSender()));
+    bytes32 infoHash = keccak256(abi.encode(campaignId, msg.sender));
     require(
       MerkleProof.verifyCalldata(
         proof, root, keccak256(bytes.concat(keccak256(abi.encode(infoHash, tokens, amounts))))
@@ -271,7 +273,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, Management {
       ? _transferRewards(infoHash, tokens, amounts, recipient)
       : _creditRewards(infoHash, tokens, amounts, recipient);
 
-    emit RewardsClaimedForAccount(campaignId, _msgSender(), root, tokens, claimedAmounts, recipient);
+    emit RewardsClaimedForAccount(campaignId, msg.sender, root, tokens, claimedAmounts, recipient);
   }
 
   /// @inheritdoc IKSDistributor
@@ -320,8 +322,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, Management {
     require(tokens.length == amounts.length, InvalidLengths());
 
     bytes32 root = _getLatestRoot(campaignId);
-    address msgSender = _msgSender();
-    require(msgSender == IERC721(erc721Addr).ownerOf(erc721Id), UnauthorizedClaimant(msgSender));
+    require(msg.sender == IERC721(erc721Addr).ownerOf(erc721Id), UnauthorizedClaimant(msg.sender));
 
     bytes32 infoHash = keccak256(abi.encode(campaignId, erc721Addr, erc721Id));
     require(
@@ -336,7 +337,7 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, Management {
       : _creditRewards(infoHash, tokens, amounts, recipient);
 
     emit RewardsClaimedForERC721(
-      campaignId, erc721Addr, erc721Id, msgSender, root, tokens, claimedAmounts, recipient
+      campaignId, erc721Addr, erc721Id, msg.sender, root, tokens, claimedAmounts, recipient
     );
   }
 
@@ -354,8 +355,6 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, Management {
     _batchClaimRewards(datas);
     _callHook(hook, hookData);
   }
-
-  receive() external payable {}
 
   function _getLatestRoot(bytes32 campaignId) internal returns (bytes32) {
     bytes32 pendingRoot = pendingRoots[campaignId].root;

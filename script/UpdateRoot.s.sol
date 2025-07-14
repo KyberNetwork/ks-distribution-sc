@@ -26,7 +26,7 @@ contract UpdateRootScript is BaseScript {
     string memory jsonString = vm.readFile(filePath);
     bytes32 root = jsonString.readBytes32('.root');
 
-    address distributor = _readAddress('script/configs/distributor.json', chainId);
+    address payable distributor = payable(_readAddress('script/configs/distributor.json', chainId));
 
     vm.startBroadcast();
     console.log('Campaign:', vm.toString(campaignId));

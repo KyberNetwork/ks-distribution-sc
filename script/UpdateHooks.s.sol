@@ -25,7 +25,7 @@ contract UpdateHooks is BaseScript {
     }
 
     address initialAdmin = _readAddress('script/configs/admin.json', chainId);
-    address distributor = _readAddress('script/configs/distributor.json', chainId);
+    address payable distributor = payable(_readAddress('script/configs/distributor.json', chainId));
 
     (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
       _readHooks('script/configs/hooks.json', chainId);
