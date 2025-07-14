@@ -355,6 +355,8 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, Management {
     _callHook(hook, hookData);
   }
 
+  receive() external payable {}
+
   function _getLatestRoot(bytes32 campaignId) internal returns (bytes32) {
     bytes32 pendingRoot = pendingRoots[campaignId].root;
     if (pendingRoot != bytes32(0)) {
