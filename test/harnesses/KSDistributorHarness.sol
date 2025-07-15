@@ -8,6 +8,7 @@ contract KSDistributorHarness is KSDistributor {
     address initialAdmin,
     address[] memory initialOperators,
     address[] memory initialGuardians,
+    address[] memory initialRescuers,
     address[] memory initialWhitelistedHooks,
     bytes4[] memory initialWhitelistedSelectors,
     uint256 initDefaultTimeLock
@@ -16,6 +17,7 @@ contract KSDistributorHarness is KSDistributor {
       initialAdmin,
       initialOperators,
       initialGuardians,
+      initialRescuers,
       initialWhitelistedHooks,
       initialWhitelistedSelectors,
       initDefaultTimeLock

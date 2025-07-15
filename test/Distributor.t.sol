@@ -40,6 +40,7 @@ contract KSDistributorTest is Test {
   address public admin = makeAddr('admin');
   address public operator = makeAddr('operator');
   address public guardian = makeAddr('guardian');
+  address public rescuer = makeAddr('rescuer');
   address public randomCaller = makeAddr('randomCaller');
 
   mapping(address => mapping(address => uint256)) public pendingRewards;
@@ -756,6 +757,8 @@ contract KSDistributorTest is Test {
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
+    address[] memory initialRescuers = new address[](1);
+    initialRescuers[0] = rescuer;
 
     swapHook = address(new SwapMock());
     address[] memory hooks = new address[](2);
@@ -766,7 +769,7 @@ contract KSDistributorTest is Test {
     selectors[1] = SwapMock.swap.selector;
 
     distributor =
-      new KSDistributorHarness(admin, initialOperators, initialGuardians, hooks, selectors, 3 hours);
+      new KSDistributorHarness(admin, initialOperators, initialGuardians, initialRescuers, hooks, selectors, 3 hours);
   }
 
   function _setUpHooks() internal {

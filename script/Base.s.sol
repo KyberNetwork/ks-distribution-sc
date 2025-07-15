@@ -1,49 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import 'forge-std/Script.sol';
-import 'forge-std/StdJson.sol';
-
+import 'ks-common-sc/script/Base.s.sol';
 import 'openzeppelin-contracts/contracts/utils/Address.sol';
 
-contract BaseScript is Script {
+contract BaseDistributorScript is BaseScript {
   using stdJson for string;
   using Address for address;
-
-  address constant CREATE3_FACTORY = address(0xc7c662Fc760FE1d5cB97fd8A68cb43A046da3F7d);
 
   struct Hook {
     address contractAddress;
     bytes funcSelector;
     string name;
     bool status;
-  }
-
-  function _readAddress(string memory path, uint256 chainId) internal view returns (address) {
-    string memory json = vm.readFile(path);
-    return json.readAddress(string.concat('.', vm.toString(chainId)));
-  }
-
-  function _readBool(string memory path, uint256 chainId) internal view returns (bool) {
-    string memory json = vm.readFile(path);
-    return json.readBool(string.concat('.', vm.toString(chainId)));
-  }
-
-  function _readAddressArray(string memory path, uint256 chainId)
-    internal
-    view
-    returns (address[] memory)
-  {
-    string memory json = vm.readFile(path);
-    return json.readAddressArray(string.concat('.', vm.toString(chainId)));
-  }
-
-  function _getJsonString(string memory path) internal view returns (string memory) {
-    try vm.readFile(path) returns (string memory json) {
-      return json;
-    } catch {
-      return '{}';
-    }
   }
 
   function _readClaimingAmounts(string memory path, uint256 idx)
@@ -70,15 +39,7 @@ contract BaseScript is Script {
     proofs = jsonString.readBytes32Array(string.concat('.userDatas[', vm.toString(idx), '].proof'));
   }
 
-  function _writeAddress(string memory path, uint256 chainId, address value) internal {
-    if (!vm.isContext(VmSafe.ForgeContext.ScriptBroadcast)) {
-      return;
-    }
-    vm.serializeJson(path, _getJsonString(path));
-    vm.writeJson(path.serialize(vm.toString(chainId), value), path);
-  }
-
-  function _readHooks(string memory path, uint256 chainId)
+  function _readHooks(string memory path)
     internal
     view
     returns (
@@ -89,7 +50,7 @@ contract BaseScript is Script {
     )
   {
     string memory json = vm.readFile(path);
-    bytes memory data = json.parseRaw(string.concat('.', vm.toString(chainId)));
+    bytes memory data = json.parseRaw(string.concat('.', chainId));
     Hook[] memory hooks = abi.decode(data, (Hook[]));
 
     addresses = new address[](hooks.length);
@@ -109,20 +70,5 @@ contract BaseScript is Script {
     address[] memory arr = new address[](1);
     arr[0] = addr;
     return arr;
-  }
-
-  /**
-   * @notice Deploy a contract using CREATE3
-   * @param creationCode the creation code of the contract
-   * @param salt the salt to deploy the contract with
-   */
-  function _deployContract(bytes32 salt, bytes memory creationCode)
-    internal
-    returns (address deployed)
-  {
-    bytes memory result = CREATE3_FACTORY.functionCall(
-      abi.encodeWithSignature('deploy(bytes32,bytes)', salt, creationCode)
-    );
-    deployed = abi.decode(result, (address));
   }
 }

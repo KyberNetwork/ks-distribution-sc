@@ -1,18 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.28;
 
-import './interfaces/IKSDistributor.sol';
-import './libraries/ClaimDataDecoder.sol';
+import {IKSDistributor} from './interfaces/IKSDistributor.sol';
+import {ClaimDataDecoder} from './libraries/ClaimDataDecoder.sol';
 
-import 'ks-common-sc/src/base/Management.sol';
+import {ManagementBase} from 'ks-common-sc/src/base/ManagementBase.sol';
+import {ManagementPausable} from 'ks-common-sc/src/base/ManagementPausable.sol';
+import {ManagementRescuable} from 'ks-common-sc/src/base/ManagementRescuable.sol';
 
-import 'openzeppelin-contracts/contracts/utils/Address.sol';
-import 'openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol';
-import 'openzeppelin-contracts/contracts/utils/SlotDerivation.sol';
-import 'openzeppelin-contracts/contracts/utils/TransientSlot.sol';
-import 'openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol';
+import {KSRoles} from 'ks-common-sc/src/libraries/KSRoles.sol';
+import {TokenHelper} from 'ks-common-sc/src/libraries/token/TokenHelper.sol';
 
-contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, Management {
+import {Address} from 'openzeppelin-contracts/contracts/utils/Address.sol';
+import {ReentrancyGuardTransient} from
+  'openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol';
+import {SlotDerivation} from 'openzeppelin-contracts/contracts/utils/SlotDerivation.sol';
+import {TransientSlot} from 'openzeppelin-contracts/contracts/utils/TransientSlot.sol';
+import {MerkleProof} from 'openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol';
+
+import {IERC721} from 'openzeppelin-contracts/contracts/token/ERC721/IERC721.sol';
+
+contract KSDistributor is
+  IKSDistributor,
+  ReentrancyGuardTransient,
+  ManagementPausable,
+  ManagementRescuable
+{
   using TokenHelper for address;
   using Address for address;
   using SlotDerivation for bytes32;
@@ -64,12 +77,14 @@ contract KSDistributor is IKSDistributor, ReentrancyGuardTransient, Management {
     address initialAdmin,
     address[] memory initialOperators,
     address[] memory initialGuardians,
+    address[] memory initialRescuers,
     address[] memory initialWhitelistedHooks,
     bytes4[] memory initialWhitelistedSelectors,
     uint256 initDefaultTimeLock
-  ) Management(0, initialAdmin) {
+  ) ManagementBase(0, initialAdmin) {
     _batchGrantRole(KSRoles.OPERATOR_ROLE, initialOperators);
     _batchGrantRole(KSRoles.GUARDIAN_ROLE, initialGuardians);
+    _batchGrantRole(KSRoles.RESCUER_ROLE, initialRescuers);
 
     _updateWhitelistedHooks(initialWhitelistedHooks, initialWhitelistedSelectors, true);
     _updateDefaultTimeLock(initDefaultTimeLock);
