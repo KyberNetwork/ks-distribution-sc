@@ -768,8 +768,9 @@ contract KSDistributorTest is Test {
     selectors[0] = SwapMock.batch.selector;
     selectors[1] = SwapMock.swap.selector;
 
-    distributor =
-      new KSDistributorHarness(admin, initialOperators, initialGuardians, initialRescuers, hooks, selectors, 3 hours);
+    distributor = new KSDistributorHarness(
+      admin, initialOperators, initialGuardians, initialRescuers, hooks, selectors, 3 hours
+    );
   }
 
   function _setUpHooks() internal {
