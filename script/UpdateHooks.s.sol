@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import '../src/KSDistributor.sol';
 import './Base.s.sol';
 
-contract UpdateHooks is BaseScript {
+contract UpdateHooks is BaseDistributorScript {
   using stdJson for string;
 
   address[] hookAddresses;
@@ -24,13 +24,13 @@ contract UpdateHooks is BaseScript {
       chainId := chainid()
     }
 
-    address initialOwner = _readAddress('script/configs/owner.json', chainId);
-    address distributor = _readAddress('script/configs/distributor.json', chainId);
+    address initialAdmin = _readAddress('script/configs/admin.json');
+    address payable distributor = payable(_readAddress('script/configs/distributor.json'));
 
     (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
-      _readHooks('script/configs/hooks.json', chainId);
+      _readHooks('script/configs/hooks.json');
 
-    vm.startBroadcast(initialOwner);
+    vm.startBroadcast(initialAdmin);
 
     for (uint256 i = 0; i < hookAddresses.length; i++) {
       bool curStatus =

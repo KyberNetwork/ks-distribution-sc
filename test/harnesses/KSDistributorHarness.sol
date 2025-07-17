@@ -5,19 +5,21 @@ import 'src/KSDistributor.sol';
 
 contract KSDistributorHarness is KSDistributor {
   constructor(
-    address initialOwner,
+    address initialAdmin,
     address[] memory initialOperators,
     address[] memory initialGuardians,
+    address[] memory initialRescuers,
     address[] memory initialWhitelistedHooks,
-    bytes4[] memory initialSelectors,
+    bytes4[] memory initialWhitelistedSelectors,
     uint256 initDefaultTimeLock
   )
     KSDistributor(
-      initialOwner,
+      initialAdmin,
       initialOperators,
       initialGuardians,
+      initialRescuers,
       initialWhitelistedHooks,
-      initialSelectors,
+      initialWhitelistedSelectors,
       initDefaultTimeLock
     )
   {}

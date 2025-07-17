@@ -7,7 +7,7 @@ import {ERC721Mock} from './mocks/ERC721Mock.sol';
 
 import 'forge-std/StdJson.sol';
 import 'forge-std/Test.sol';
-import {ERC20Mock} from 'openzeppelin-contracts/mocks/token/ERC20Mock.sol';
+import {ERC20Mock} from 'openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol';
 
 contract GenerateMerkleTreeTest is Test {
   using stdJson for string;
@@ -20,6 +20,7 @@ contract GenerateMerkleTreeTest is Test {
   address public owner = makeAddr('owner');
   address public operator = makeAddr('operator');
   address public guardian = makeAddr('guardian');
+  address public rescuer = makeAddr('rescuer');
 
   mapping(address => bool) public etched;
 
@@ -113,8 +114,16 @@ contract GenerateMerkleTreeTest is Test {
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
+    address[] memory initialRescuers = new address[](1);
+    initialRescuers[0] = rescuer;
     distributor = new KSDistributor(
-      owner, initialOperators, initialGuardians, new address[](0), new bytes4[](0), 1 hours
+      owner,
+      initialOperators,
+      initialGuardians,
+      initialRescuers,
+      new address[](0),
+      new bytes4[](0),
+      1 hours
     );
   }
 }

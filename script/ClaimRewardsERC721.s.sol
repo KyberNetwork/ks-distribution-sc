@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import '../src/KSDistributor.sol';
 import './Base.s.sol';
-import 'openzeppelin-contracts/token/ERC721/ERC721.sol';
+import 'openzeppelin-contracts/contracts/token/ERC721/ERC721.sol';
 
-contract ClaimRewardsERC721Script is BaseScript {
+contract ClaimRewardsERC721Script is BaseDistributorScript {
   using stdJson for string;
 
   bytes32 campaignId = bytes32(0);
@@ -37,7 +37,7 @@ contract ClaimRewardsERC721Script is BaseScript {
       console.log('\tAmount:', amounts[i]);
     }
 
-    address distributor = _readAddress('script/configs/distributor.json', chainId);
+    address payable distributor = payable(_readAddress('script/configs/distributor.json'));
     address claimant = IERC721(erc721Addr).ownerOf(erc721Id);
 
     vm.startBroadcast(claimant);

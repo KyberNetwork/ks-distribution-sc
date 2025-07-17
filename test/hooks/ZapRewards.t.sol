@@ -17,6 +17,7 @@ contract ZapRewardsTest is Test {
   address public owner = makeAddr('owner');
   address public operator = makeAddr('operator');
   address public guardian = makeAddr('guardian');
+  address public rescuer = makeAddr('rescuer');
   address public alice = makeAddr('alice');
 
   KSDistributor public distributor;
@@ -39,13 +40,17 @@ contract ZapRewardsTest is Test {
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
+    address[] memory initialRescuers = new address[](1);
+    initialRescuers[0] = rescuer;
 
     address[] memory hooks = new address[](1);
     hooks[0] = address(zapRouter);
     bytes4[] memory selectors = new bytes4[](1);
     selectors[0] = IKSZapRouter.zap.selector;
 
-    distributor = new KSDistributor(owner, initialOperators, initialGuardians, hooks, selectors, 0);
+    distributor = new KSDistributor(
+      owner, initialOperators, initialGuardians, initialRescuers, hooks, selectors, 0
+    );
 
     deal(weth, address(distributor), wethAmount);
     deal(usdc, address(distributor), usdcAmount);

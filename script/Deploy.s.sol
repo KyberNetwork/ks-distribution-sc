@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import '../src/KSDistributor.sol';
 import './Base.s.sol';
 
-contract DeployScript is BaseScript {
+contract DeployScript is BaseDistributorScript {
   address[] enableHookAddresses;
   bytes4[] enableHookFuncSelectors;
 
@@ -12,18 +12,14 @@ contract DeployScript is BaseScript {
   string internal _releaseVersion;
 
   function run() external {
-    uint256 chainId;
-    assembly {
-      chainId := chainid()
-    }
-
     require(bytes(_releaseVersion).length > 0, 'Release version not set');
 
-    address initialOwner = _readAddress('script/configs/owner.json', chainId);
-    address[] memory initialOperators = _readAddressArray('script/configs/operators.json', chainId);
-    address[] memory initialGuardians = _readAddressArray('script/configs/guardians.json', chainId);
+    address initialAdmin = _readAddress('script/configs/admin.json');
+    address[] memory initialOperators = _readAddressArray('script/configs/operators.json');
+    address[] memory initialGuardians = _readAddressArray('script/configs/guardians.json');
+    address[] memory initialRescuers = _readAddressArray('script/configs/rescuers.json');
     (address[] memory hookAddresses, bytes4[] memory hookFuncSelectors, bool[] memory hookStatuses,)
-    = _readHooks('script/configs/hooks.json', chainId);
+    = _readHooks('script/configs/hooks.json');
 
     for (uint256 i = 0; i < hookAddresses.length; i++) {
       if (hookStatuses[i]) {
@@ -37,18 +33,19 @@ contract DeployScript is BaseScript {
     bytes memory bytecode = abi.encodePacked(
       vm.getCode(_contractName),
       abi.encode(
-        initialOwner,
+        initialAdmin,
         initialOperators,
         initialGuardians,
+        initialRescuers,
         enableHookAddresses,
         enableHookFuncSelectors,
         2 hours
       )
     );
 
-    address distributor = _deployContract(salt, bytecode);
+    address distributor = _create3Deploy(salt, bytecode);
 
-    _writeAddress('script/configs/distributor.json', chainId, distributor);
+    _writeAddress('script/configs/distributor.json', distributor);
     vm.stopBroadcast();
   }
 }
