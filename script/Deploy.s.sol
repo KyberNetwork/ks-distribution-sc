@@ -9,7 +9,7 @@ contract DeployScript is BaseDistributorScript {
   bytes4[] enableHookFuncSelectors;
 
   string internal _contractName = 'KSDistributor';
-  string internal _releaseVersion;
+  string internal _releaseVersion = '250718_2';
 
   function run() external {
     require(bytes(_releaseVersion).length > 0, 'Release version not set');

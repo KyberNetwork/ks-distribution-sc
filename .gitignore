@@ -8,6 +8,10 @@ broadcast/
 # Docs
 docs/
 
+# Data
+script/input/2*
+script/output/2*
+
 # Dotenv file
 .env
 
