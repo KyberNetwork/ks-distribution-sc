@@ -39,7 +39,7 @@ contract BaseDistributorScript is BaseScript {
     proofs = jsonString.readBytes32Array(string.concat('.userDatas[', vm.toString(idx), '].proof'));
   }
 
-  function _readHooks(string memory path)
+  function _readHooks(string memory key)
     internal
     view
     returns (
@@ -49,7 +49,7 @@ contract BaseDistributorScript is BaseScript {
       string[] memory names
     )
   {
-    string memory json = vm.readFile(path);
+    string memory json = _getJsonString(key);
     bytes memory data = json.parseRaw(string.concat('.', chainId));
     Hook[] memory hooks = abi.decode(data, (Hook[]));
 

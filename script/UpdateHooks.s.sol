@@ -24,11 +24,10 @@ contract UpdateHooks is BaseDistributorScript {
       chainId := chainid()
     }
 
-    address initialAdmin = _readAddress('script/configs/admin.json');
-    address payable distributor = payable(_readAddress('script/configs/distributor.json'));
+    address initialAdmin = _readAddress('admin');
+    address payable distributor = payable(_readAddress('distributor'));
 
-    (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) =
-      _readHooks('script/configs/hooks.json');
+    (hookAddresses, hookFuncSelectors, hookStatuses, hookNames) = _readHooks('hooks');
 
     vm.startBroadcast(initialAdmin);
 
