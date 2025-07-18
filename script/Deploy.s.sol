@@ -14,12 +14,12 @@ contract DeployScript is BaseDistributorScript {
   function run() external {
     require(bytes(_releaseVersion).length > 0, 'Release version not set');
 
-    address initialAdmin = _readAddress('script/configs/admin.json');
-    address[] memory initialOperators = _readAddressArray('script/configs/operators.json');
-    address[] memory initialGuardians = _readAddressArray('script/configs/guardians.json');
-    address[] memory initialRescuers = _readAddressArray('script/configs/rescuers.json');
+    address initialAdmin = _readAddress('admin');
+    address[] memory initialOperators = _readAddressArray('operators');
+    address[] memory initialGuardians = _readAddressArray('guardians');
+    address[] memory initialRescuers = _readAddressArray('rescuers');
     (address[] memory hookAddresses, bytes4[] memory hookFuncSelectors, bool[] memory hookStatuses,)
-    = _readHooks('script/configs/hooks.json');
+    = _readHooks('hooks');
 
     for (uint256 i = 0; i < hookAddresses.length; i++) {
       if (hookStatuses[i]) {
@@ -45,7 +45,7 @@ contract DeployScript is BaseDistributorScript {
 
     address distributor = _create3Deploy(salt, bytecode);
 
-    _writeAddress('script/configs/distributor.json', distributor);
+    _writeAddress('distributor', distributor);
     vm.stopBroadcast();
   }
 }

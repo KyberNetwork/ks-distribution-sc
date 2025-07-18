@@ -31,7 +31,7 @@ contract CreateCampaignScript is BaseScript {
     bytes32 salt = jsonString.readBytes32('.salt');
     bytes32 root = jsonString.readBytes32('.root');
 
-    address payable distributor = payable(_readAddress('script/configs/distributor.json'));
+    address payable distributor = payable(_readAddress('distributor'));
 
     vm.startBroadcast();
     bytes32 campaignId =
