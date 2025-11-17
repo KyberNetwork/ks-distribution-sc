@@ -38,5 +38,13 @@
       "name": "KSZapRouterPosition",
       "status": true
     }
+  ],
+  "143": [
+    {
+      "contractAddress": "0x89C91686948C3Bc9A5bDF7A2A773ea71530a233e",
+      "funcSelector": "0xaa5d82c3",
+      "name": "KSZapRouterPosition",
+      "status": true
+    }
   ]
 }
