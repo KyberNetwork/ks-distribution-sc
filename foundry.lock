@@ -2,7 +2,7 @@
   "lib/ks-common-sc": {
     "rev": "cbb22eecc7f0474a7876e5b59b7a1225c38f0479"
   },
-  "lib/ks-common-sc-latest": {
+  "lib/ks-common-sc-libs": {
     "tag": {
       "name": "v2.5.1",
       "rev": "4c43ae4e8357f29625c4fc24c07a6d66ed8fc66f"

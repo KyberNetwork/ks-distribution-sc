@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import 'ks-common-sc-latest/script/Base.s.sol';
+import 'ks-common-sc-libs/script/Base.s.sol';
 import 'openzeppelin-contracts/contracts/utils/Address.sol';
 
 contract BaseDistributorScript is BaseScript {

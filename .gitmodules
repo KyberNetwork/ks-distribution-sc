@@ -1,6 +1,6 @@
 [submodule "lib/ks-common-sc"]
 	path = lib/ks-common-sc
 	url = https://github.com/KyberNetwork/ks-common-sc
-[submodule "lib/ks-common-sc-latest"]
-	path = lib/ks-common-sc-latest
+[submodule "lib/ks-common-sc-libs"]
+	path = lib/ks-common-sc-libs
 	url = https://github.com/KyberNetwork/ks-common-sc
