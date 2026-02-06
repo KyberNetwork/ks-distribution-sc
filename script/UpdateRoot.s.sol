@@ -39,8 +39,8 @@ contract UpdateRootScript is BaseDistributorScript {
         require(root != bytes32(0), 'root is empty');
 
         // this for test runs only
-        vm.stopBroadcast();
-        vm.startBroadcast(operatorsOf[vm.getChainId()][0]);
+        // vm.stopBroadcast();
+        // vm.startBroadcast(operatorsOf[vm.getChainId()][0]);
 
         _updateRoot(campaignId, root, effectiveTimestamp);
         _verifyRoot(campaignId, root, effectiveTimestamp);
