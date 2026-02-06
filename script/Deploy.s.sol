@@ -43,7 +43,7 @@ contract DeployScript is BaseDistributorScript {
       )
     );
 
-    address distributor = _create3Deploy(salt, bytecode);
+    (address distributor,) = _create3Deploy(salt, bytecode);
 
     _writeAddress('distributor', distributor);
     vm.stopBroadcast();
