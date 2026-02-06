@@ -83,6 +83,13 @@ contract BaseDistributorScript is BaseScript {
     }
   }
 
+  function _readUpdateRootData() internal view returns (bytes32[] memory campaignIds) {
+    string memory filePath = string.concat('script/input/update-root.json');
+    string memory jsonString = vm.readFile(filePath);
+    bytes memory data = jsonString.parseRaw(string.concat('.', vm.toString(vm.getChainId())));
+    campaignIds = abi.decode(data, (bytes32[]));
+  }
+
   function _toArray(address addr) internal pure returns (address[] memory) {
     address[] memory arr = new address[](1);
     arr[0] = addr;

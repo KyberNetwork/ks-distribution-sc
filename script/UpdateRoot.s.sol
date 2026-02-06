@@ -14,23 +14,16 @@ contract UpdateRootScript is BaseDistributorScript {
   // Usage:
   // # Update root for multiple campaigns using chainIds, campaignIds, and effectiveTimestamps
   // forge script UpdateRootScript \
-  // --sig "run(string[],bytes32[],uint256[])" \
-  // "[1,8453,8453]" \
-  // "[0x4620df13f805b0f4948a11733c325a2befb35115bb121a359f5ecdaa111bfc4c,0x6b0c58c3c5d752b7ebba28c104e012c932fcc21683efa3b1559b4c76f1d2e0a3,0x9385788dc841a66c2845a4b1384c116519aef01e25433e7930ee5aec2edac6ba]" \
-  // "[1770204199,1770204199,1770204199]" \
+  // --sig "run(string[],uint256)" \
+  // "[1,8453]" \
+  // "1770204199" \
   //  --broadcast
 
-  function run(
-    string[] memory chainIds,
-    bytes32[] memory campaignIds,
-    uint256[] memory effectiveTimestamps
-  ) public multiChain(chainIds) {
-    require(
-      chainIds.length == campaignIds.length && campaignIds.length == effectiveTimestamps.length,
-      'length mismatch'
-    );
+  function run(string[] memory chainIds, uint256 effectiveTimestamp) public multiChain(chainIds) {
+    require(effectiveTimestamp > block.timestamp, 'invalid effectiveTimestamp');
 
     distributor = KSDistributor(payable(distributorOf[vm.getChainId()]));
+    bytes32[] memory campaignIds = _readUpdateRootData();
 
     for (uint256 i = 0; i < campaignIds.length; i++) {
       bytes32 campaignId = campaignIds[i];
@@ -45,8 +38,18 @@ contract UpdateRootScript is BaseDistributorScript {
 
         require(root != bytes32(0), 'root is empty');
 
-        _updateRoot(campaignId, root, effectiveTimestamps[i]);
-        _verifyRoot(campaignId, root, effectiveTimestamps[i]);
+        // this for test runs only
+        vm.stopBroadcast();
+        vm.startBroadcast(operatorsOf[vm.getChainId()][0]);
+
+        _updateRoot(campaignId, root, effectiveTimestamp);
+        _verifyRoot(campaignId, root, effectiveTimestamp);
+      } else {
+        console.log(
+          'CampaignId: %s does not exist on chainId: %s, skipping...',
+          vm.toString(campaignId),
+          vm.toString(vm.getChainId())
+        );
       }
     }
   }
