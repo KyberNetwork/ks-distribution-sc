@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import 'ks-common-sc/script/Base.s.sol';
+import 'ks-common-sc-libs/script/Base.s.sol';
 import 'openzeppelin-contracts/contracts/utils/Address.sol';
 
 contract BaseDistributorScript is BaseScript {
@@ -13,6 +13,23 @@ contract BaseDistributorScript is BaseScript {
     bytes funcSelector;
     string name;
     bool status;
+  }
+
+  mapping(uint256 => address) adminOf;
+  mapping(uint256 => address) distributorOf;
+  mapping(uint256 => address[]) guardiansOf;
+  mapping(uint256 => address[]) operatorsOf;
+  mapping(uint256 => address[]) rescuersOf;
+
+  function _loadConfigs(string[] memory _chainIds) internal override {
+    for (uint256 i = 0; i < _chainIds.length; i++) {
+      uint256 chainId = vm.parseUint(_chainIds[i]);
+      adminOf[chainId] = _readAddressByChainId('admin', chainId);
+      distributorOf[chainId] = _readAddressByChainId('distributor', chainId);
+      guardiansOf[chainId] = _readAddressArrayByChainId('guardians', chainId);
+      operatorsOf[chainId] = _readAddressArrayByChainId('operators', chainId);
+      rescuersOf[chainId] = _readAddressArrayByChainId('rescuers', chainId);
+    }
   }
 
   function _readClaimingAmounts(string memory path, uint256 idx)
@@ -50,7 +67,7 @@ contract BaseDistributorScript is BaseScript {
     )
   {
     string memory json = _getJsonString(key);
-    bytes memory data = json.parseRaw(string.concat('.', chainId));
+    bytes memory data = json.parseRaw(string.concat('.', vm.toString(vm.getChainId())));
     Hook[] memory hooks = abi.decode(data, (Hook[]));
 
     addresses = new address[](hooks.length);
@@ -64,6 +81,13 @@ contract BaseDistributorScript is BaseScript {
       statuses[i] = hooks[i].status;
       names[i] = hooks[i].name;
     }
+  }
+
+  function _readUpdateRootData() internal view returns (bytes32[] memory campaignIds) {
+    string memory filePath = string.concat('script/campaigns-to-update-root.json');
+    string memory jsonString = vm.readFile(filePath);
+    bytes memory data = jsonString.parseRaw(string.concat('.', vm.toString(vm.getChainId())));
+    campaignIds = abi.decode(data, (bytes32[]));
   }
 
   function _toArray(address addr) internal pure returns (address[] memory) {
