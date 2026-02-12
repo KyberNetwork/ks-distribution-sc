@@ -15,9 +15,9 @@ contract UpdateRootScript is BaseDistributorScript {
   // # Update root for multiple campaigns using chainIds, campaignIds, and effectiveTimestamps
   // forge script UpdateRootScript \
   // --sig "run(string[],uint256)" \
-  // "[1,8453]" \
-  // "1770204199" \
-  //  --broadcast
+  // "[1,42161,8453,56]" \
+  // "1770969600" \
+  //  --block-gas-limit 20000000000 --broadcast
 
   function run(string[] memory chainIds, uint256 effectiveTimestamp) public multiChain(chainIds) {
     require(effectiveTimestamp > block.timestamp, 'invalid effectiveTimestamp');
@@ -37,10 +37,6 @@ contract UpdateRootScript is BaseDistributorScript {
         bytes32 root = jsonString.readBytes32('.root');
 
         require(root != bytes32(0), 'root is empty');
-
-        // this for test runs only
-        // vm.stopBroadcast();
-        // vm.startBroadcast(operatorsOf[vm.getChainId()][0]);
 
         _updateRoot(campaignId, root, effectiveTimestamp);
         _verifyRoot(campaignId, root, effectiveTimestamp);
