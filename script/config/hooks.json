@@ -46,5 +46,25 @@
       "name": "KSZapRouterPosition",
       "status": true
     }
+  ],
+  "4663": [
+    {
+      "contractAddress": "0x455C51505E90819aBdC691B98Aee6a11ED41d618",
+      "funcSelector": "0x8eda4ab3",
+      "name": "KSAllowanceHub_permit2",
+      "status": true
+    },
+    {
+      "contractAddress": "0x455C51505E90819aBdC691B98Aee6a11ED41d618",
+      "funcSelector": "0xea6e7a04",
+      "name": "KSAllowanceHub_permit",
+      "status": true
+    },
+    {
+      "contractAddress": "0x3bdB21Ea8793AcBF0cE18954865b7572694d037f",
+      "funcSelector": "0xeb8cf626",
+      "name": "KSZapRouterV3",
+      "status": true
+    }
   ]
 }
