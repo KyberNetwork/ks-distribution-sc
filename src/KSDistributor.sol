@@ -11,9 +11,11 @@ import {ManagementRescuable} from 'ks-common-sc/src/base/ManagementRescuable.sol
 import {KSRoles} from 'ks-common-sc/src/libraries/KSRoles.sol';
 import {TokenHelper} from 'ks-common-sc/src/libraries/token/TokenHelper.sol';
 
+import {Initializable} from 'openzeppelin-contracts/contracts/proxy/utils/Initializable.sol';
 import {Address} from 'openzeppelin-contracts/contracts/utils/Address.sol';
-import {ReentrancyGuardTransient} from
-  'openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol';
+import {
+  ReentrancyGuardTransient
+} from 'openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol';
 import {SlotDerivation} from 'openzeppelin-contracts/contracts/utils/SlotDerivation.sol';
 import {TransientSlot} from 'openzeppelin-contracts/contracts/utils/TransientSlot.sol';
 import {MerkleProof} from 'openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol';
@@ -22,6 +24,7 @@ import {IERC721} from 'openzeppelin-contracts/contracts/token/ERC721/IERC721.sol
 
 contract KSDistributor is
   IKSDistributor,
+  Initializable,
   ReentrancyGuardTransient,
   ManagementPausable,
   ManagementRescuable
@@ -81,7 +84,40 @@ contract KSDistributor is
     address[] memory initialWhitelistedHooks,
     bytes4[] memory initialWhitelistedSelectors,
     uint256 initDefaultTimeLock
-  ) ManagementBase(0, initialAdmin) {
+  )
+    ManagementBase(0, initialAdmin)
+    ManagementPausable(initialGuardians)
+    ManagementRescuable(initialRescuers)
+  {
+    _batchGrantRole(KSRoles.OPERATOR_ROLE, initialOperators);
+
+    _updateWhitelistedHooks(initialWhitelistedHooks, initialWhitelistedSelectors, true);
+    _updateDefaultTimeLock(initDefaultTimeLock);
+
+    // Behind a proxy this instance is only the implementation; make sure nobody can initialize it
+    // directly. Harmless for a direct deployment, which is already configured by this constructor.
+    _disableInitializers();
+  }
+
+  /**
+   * @notice Configures a proxy's storage. The constructor above configures the implementation, so
+   * a proxy delegating to it starts with empty storage and must be initialized through here.
+   * @dev Granting DEFAULT_ADMIN_ROLE succeeds only while `defaultAdmin()` is still the zero
+   * address, which is true exactly once, on fresh proxy storage. The admin delay stays 0, matching
+   * `ManagementBase(0, initialAdmin)` in the constructor.
+   */
+  function initialize(
+    address initialAdmin,
+    address[] memory initialOperators,
+    address[] memory initialGuardians,
+    address[] memory initialRescuers,
+    address[] memory initialWhitelistedHooks,
+    bytes4[] memory initialWhitelistedSelectors,
+    uint256 initDefaultTimeLock
+  ) external initializer {
+    require(initialAdmin != address(0), AccessControlInvalidDefaultAdmin(address(0)));
+
+    _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
     _batchGrantRole(KSRoles.OPERATOR_ROLE, initialOperators);
     _batchGrantRole(KSRoles.GUARDIAN_ROLE, initialGuardians);
     _batchGrantRole(KSRoles.RESCUER_ROLE, initialRescuers);
@@ -159,6 +195,9 @@ contract KSDistributor is
     onlyRole(KSRoles.OPERATOR_ROLE)
     campaignExists(campaignId)
   {
+    // A zero startTimestamp is the sentinel for a non-existent campaign, so allowing it here
+    // would brick every campaignExists-guarded operation on this campaign.
+    require(startTimestamp != 0, InvalidStartTimestamp());
     require(
       startTimestamp + MIN_CAMPAIGN_DURATION <= campaigns[campaignId].endTimestamp,
       TooShortDuration()
