@@ -6,6 +6,7 @@ import './harnesses/KSDistributorHarness.sol';
 import './mocks/ERC721Mock.sol';
 import {SwapMock} from './mocks/SwapMock.sol';
 import './utils/MerkleUtils.sol';
+import {ProxyUtils} from './utils/ProxyUtils.sol';
 
 import 'forge-std/Test.sol';
 
@@ -179,10 +180,24 @@ contract KSDistributorTest is Test {
 
   function testUpdateStartTimestampShouldEmitsEvent() public {
     (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(100);
+    uint256 newStartTimestamp = block.timestamp + 1 hours;
     vm.startPrank(operator);
     vm.expectEmit(address(distributor));
-    emit IKSDistributor.StartTimestampUpdated(campaignId, campaign.startTimestamp, 0);
+    emit IKSDistributor.StartTimestampUpdated(
+      campaignId, campaign.startTimestamp, newStartTimestamp
+    );
+    distributor.updateStartTimestamp(campaignId, newStartTimestamp);
+  }
+
+  function testUpdateStartTimestampToZeroShouldRevert() public {
+    (bytes32 campaignId, IKSDistributor.Campaign memory campaign) = _createCampaign(100);
+    vm.expectRevert(IKSDistributor.InvalidStartTimestamp.selector);
+    vm.prank(operator);
     distributor.updateStartTimestamp(campaignId, 0);
+
+    // The campaign must be untouched, not silently erased.
+    (uint256 actualStartTimestamp,,) = distributor.campaigns(campaignId);
+    assertEq(actualStartTimestamp, campaign.startTimestamp);
   }
 
   function testOnlyOperatorCanUpdateEndTimestamp() public {
@@ -768,8 +783,17 @@ contract KSDistributorTest is Test {
     selectors[0] = SwapMock.batch.selector;
     selectors[1] = SwapMock.swap.selector;
 
-    distributor = new KSDistributorHarness(
-      admin, initialOperators, initialGuardians, initialRescuers, hooks, selectors, 3 hours
+    distributor = KSDistributorHarness(
+      ProxyUtils.deployProxy(
+        address(new KSDistributorHarness()),
+        admin,
+        initialOperators,
+        initialGuardians,
+        initialRescuers,
+        hooks,
+        selectors,
+        3 hours
+      )
     );
   }
 

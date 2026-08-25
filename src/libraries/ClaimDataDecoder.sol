@@ -18,7 +18,7 @@ library ClaimDataDecoder {
       address recipient
     )
   {
-    assembly ("memory-safe") {
+    assembly ('memory-safe') {
       campaignId := calldataload(_bytes.offset)
       recipient := calldataload(add(_bytes.offset, 0x80))
     }
@@ -40,7 +40,7 @@ library ClaimDataDecoder {
       address recipient
     )
   {
-    assembly ("memory-safe") {
+    assembly ('memory-safe') {
       campaignId := calldataload(_bytes.offset)
       erc721Addr := calldataload(add(_bytes.offset, 0x20))
       erc721Id := calldataload(add(_bytes.offset, 0x40))

@@ -11,9 +11,11 @@ import {ManagementRescuable} from 'ks-common-sc/src/base/ManagementRescuable.sol
 import {KSRoles} from 'ks-common-sc/src/libraries/KSRoles.sol';
 import {TokenHelper} from 'ks-common-sc/src/libraries/token/TokenHelper.sol';
 
+import {Initializable} from 'openzeppelin-contracts/contracts/proxy/utils/Initializable.sol';
 import {Address} from 'openzeppelin-contracts/contracts/utils/Address.sol';
-import {ReentrancyGuardTransient} from
-  'openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol';
+import {
+  ReentrancyGuardTransient
+} from 'openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol';
 import {SlotDerivation} from 'openzeppelin-contracts/contracts/utils/SlotDerivation.sol';
 import {TransientSlot} from 'openzeppelin-contracts/contracts/utils/TransientSlot.sol';
 import {MerkleProof} from 'openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol';
@@ -24,7 +26,8 @@ contract KSDistributor is
   IKSDistributor,
   ReentrancyGuardTransient,
   ManagementPausable,
-  ManagementRescuable
+  ManagementRescuable,
+  Initializable
 {
   using TokenHelper for address;
   using Address for address;
@@ -73,7 +76,19 @@ contract KSDistributor is
     _;
   }
 
-  constructor(
+  constructor()
+    ManagementBase(0, msg.sender)
+    ManagementPausable(new address[](0))
+    ManagementRescuable(new address[](0))
+  {
+    _disableInitializers();
+  }
+
+  /// @dev Initializes the contract state variables.
+  /// @dev `initialAdmin` must be non-zero: unlike the {AccessControlDefaultAdminRules}
+  /// constructor, `_grantRole` does not reject the zero address, so a zero admin would consume the
+  /// initializer and leave the contract without any account able to administer it.
+  function initialize(
     address initialAdmin,
     address[] memory initialOperators,
     address[] memory initialGuardians,
@@ -81,7 +96,8 @@ contract KSDistributor is
     address[] memory initialWhitelistedHooks,
     bytes4[] memory initialWhitelistedSelectors,
     uint256 initDefaultTimeLock
-  ) ManagementBase(0, initialAdmin) {
+  ) external initializer checkAddress(initialAdmin) {
+    _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
     _batchGrantRole(KSRoles.OPERATOR_ROLE, initialOperators);
     _batchGrantRole(KSRoles.GUARDIAN_ROLE, initialGuardians);
     _batchGrantRole(KSRoles.RESCUER_ROLE, initialRescuers);
@@ -159,6 +175,9 @@ contract KSDistributor is
     onlyRole(KSRoles.OPERATOR_ROLE)
     campaignExists(campaignId)
   {
+    // A zero startTimestamp is the sentinel for a non-existent campaign, so allowing it here
+    // would brick every campaignExists-guarded operation on this campaign.
+    require(startTimestamp != 0, InvalidStartTimestamp());
     require(
       startTimestamp + MIN_CAMPAIGN_DURATION <= campaigns[campaignId].endTimestamp,
       TooShortDuration()

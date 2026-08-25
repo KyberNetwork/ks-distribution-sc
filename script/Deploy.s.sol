@@ -4,48 +4,74 @@ pragma solidity ^0.8.0;
 import '../src/KSDistributor.sol';
 import './Base.s.sol';
 
-contract DeployScript is BaseDistributorScript {
-  address[] enableHookAddresses;
-  bytes4[] enableHookFuncSelectors;
+import {
+  TransparentUpgradeableProxy
+} from 'openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol';
 
-  string internal _contractName = 'KSDistributor';
+contract DeployScript is BaseDistributorScript {
   string internal _releaseVersion = '250718_2';
 
+  uint256 internal constant DEFAULT_TIME_LOCK = 2 hours;
+
+  /**
+   * @dev Deploys a KSDistributor implementation and a TransparentUpgradeableProxy in front of it.
+   *
+   * Usage:
+   *
+   * # Multiple chains using chain ids
+   * forge script DeployScript \
+   *   --sig "run(string[])" \
+   *   "[1,42161,8453,56,143,4663]" --broadcast
+   */
+  function run(string[] memory chainIds) public multiChain(chainIds) {
+    _deploy();
+  }
+
   function run() external {
-    require(bytes(_releaseVersion).length > 0, 'Release version not set');
+    vm.startBroadcast();
+    _deploy();
+    vm.stopBroadcast();
+  }
 
-    address initialAdmin = _readAddress('admin');
-    address[] memory initialOperators = _readAddressArray('operators');
-    address[] memory initialGuardians = _readAddressArray('guardians');
-    address[] memory initialRescuers = _readAddressArray('rescuers');
-    (address[] memory hookAddresses, bytes4[] memory hookFuncSelectors, bool[] memory hookStatuses,)
-    = _readHooks('hooks');
-
-    for (uint256 i = 0; i < hookAddresses.length; i++) {
-      if (hookStatuses[i]) {
-        enableHookAddresses.push(hookAddresses[i]);
-        enableHookFuncSelectors.push(hookFuncSelectors[i]);
-      }
+  function _deploy() internal {
+    if (bytes(_releaseVersion).length == 0) {
+      revert('release version is required');
     }
 
-    vm.startBroadcast();
-    bytes32 salt = keccak256(bytes(string.concat(_contractName, '_', _releaseVersion)));
-    bytes memory bytecode = abi.encodePacked(
-      vm.getCode(_contractName),
-      abi.encode(
+    address initialAdmin = _readAddress('admin');
+
+    (address implementation,) = _createXDeploy(
+      keccak256(abi.encodePacked(string.concat('KSDistributorImpl_', _releaseVersion))),
+      type(KSDistributor).creationCode
+    );
+    console.log('implementation:', implementation);
+    _writeAddress('distributor-impl', implementation);
+
+    (address[] memory enableHookAddresses, bytes4[] memory enableHookFuncSelectors) =
+      _readEnabledHooks();
+
+    bytes memory initData = abi.encodeCall(
+      KSDistributor.initialize,
+      (
         initialAdmin,
-        initialOperators,
-        initialGuardians,
-        initialRescuers,
+        _readAddressArray('operators'),
+        _readAddressArray('guardians'),
+        _readAddressArray('rescuers'),
         enableHookAddresses,
         enableHookFuncSelectors,
-        2 hours
+        DEFAULT_TIME_LOCK
       )
     );
 
-    (address distributor,) = _create3Deploy(salt, bytecode);
+    (address distributor,) = _createXDeploy(
+      keccak256(abi.encodePacked(string.concat('KSDistributor_', _releaseVersion))),
+      abi.encodePacked(
+        type(TransparentUpgradeableProxy).creationCode,
+        abi.encode(implementation, initialAdmin, initData)
+      )
+    );
+    console.log('distributor:', distributor);
 
     _writeAddress('distributor', distributor);
-    vm.stopBroadcast();
   }
 }

@@ -41,9 +41,8 @@ contract ClaimRewardsERC721Script is BaseDistributorScript {
     address claimant = IERC721(erc721Addr).ownerOf(erc721Id);
 
     vm.startBroadcast(claimant);
-    KSDistributor(distributor).claimRewardsForERC721(
-      campaignId, erc721Addr, erc721Id, tokens, amounts, proof, claimant
-    );
+    KSDistributor(distributor)
+      .claimRewardsForERC721(campaignId, erc721Addr, erc721Id, tokens, amounts, proof, claimant);
     vm.stopBroadcast();
   }
 }
