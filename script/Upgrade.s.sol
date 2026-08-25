@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import '../src/KSDistributor.sol';
 import './Base.s.sol';
 
 import {ERC1967Utils} from 'openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol';
@@ -13,8 +14,6 @@ contract UpgradeScript is BaseDistributorScript {
   /// @dev Bump to roll out new logic. Matches DeployScript's release version by default, so a
   /// freshly deployed chain is already up to date.
   string internal _releaseVersion = '250718_2';
-
-  uint256 internal constant DEFAULT_TIME_LOCK = 2 hours;
 
   /**
    * @dev Deploys a KSDistributor implementation and points the proxy at it on specified chains
@@ -36,7 +35,7 @@ contract UpgradeScript is BaseDistributorScript {
 
     (address implementation,) = _createXDeploy(
       keccak256(abi.encodePacked(string.concat('KSDistributorImpl_', _releaseVersion))),
-      _distributorImplCreationCode(DEFAULT_TIME_LOCK)
+      type(KSDistributor).creationCode
     );
 
     address current =

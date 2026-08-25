@@ -32,31 +32,6 @@ contract BaseDistributorScript is BaseScript {
     }
   }
 
-  /// @dev The KSDistributor implementation's creation code for the current chain's config.
-  /// Shared by Deploy and Upgrade so both produce the same implementation for a given version.
-  /// The constructor only configures the implementation's own storage and disables its
-  /// initializers; a proxy's storage is configured by `initialize` instead.
-  function _distributorImplCreationCode(uint256 defaultTimeLock) internal returns (bytes memory) {
-    address initialAdmin = _readAddress('admin');
-    require(initialAdmin != address(0), 'admin not configured for this chain');
-
-    (address[] memory enableHookAddresses, bytes4[] memory enableHookFuncSelectors) =
-      _readEnabledHooks();
-
-    return abi.encodePacked(
-      vm.getCode('KSDistributor'),
-      abi.encode(
-        initialAdmin,
-        _readAddressArray('operators'),
-        _readAddressArray('guardians'),
-        _readAddressArray('rescuers'),
-        enableHookAddresses,
-        enableHookFuncSelectors,
-        defaultTimeLock
-      )
-    );
-  }
-
   /// @dev Built fresh per chain — accumulating into storage arrays would leak one chain's hooks
   /// into the next chain's constructor args.
   function _readEnabledHooks()

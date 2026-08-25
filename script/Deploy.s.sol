@@ -42,7 +42,7 @@ contract DeployScript is BaseDistributorScript {
 
     (address implementation,) = _createXDeploy(
       keccak256(abi.encodePacked(string.concat('KSDistributorImpl_', _releaseVersion))),
-      _distributorImplCreationCode(DEFAULT_TIME_LOCK)
+      type(KSDistributor).creationCode
     );
     console.log('implementation:', implementation);
     _writeAddress('distributor-impl', implementation);

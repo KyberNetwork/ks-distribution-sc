@@ -24,10 +24,10 @@ import {IERC721} from 'openzeppelin-contracts/contracts/token/ERC721/IERC721.sol
 
 contract KSDistributor is
   IKSDistributor,
-  Initializable,
   ReentrancyGuardTransient,
   ManagementPausable,
-  ManagementRescuable
+  ManagementRescuable,
+  Initializable
 {
   using TokenHelper for address;
   using Address for address;
@@ -76,36 +76,18 @@ contract KSDistributor is
     _;
   }
 
-  constructor(
-    address initialAdmin,
-    address[] memory initialOperators,
-    address[] memory initialGuardians,
-    address[] memory initialRescuers,
-    address[] memory initialWhitelistedHooks,
-    bytes4[] memory initialWhitelistedSelectors,
-    uint256 initDefaultTimeLock
-  )
-    ManagementBase(0, initialAdmin)
-    ManagementPausable(initialGuardians)
-    ManagementRescuable(initialRescuers)
+  constructor()
+    ManagementBase(0, msg.sender)
+    ManagementPausable(new address[](0))
+    ManagementRescuable(new address[](0))
   {
-    _batchGrantRole(KSRoles.OPERATOR_ROLE, initialOperators);
-
-    _updateWhitelistedHooks(initialWhitelistedHooks, initialWhitelistedSelectors, true);
-    _updateDefaultTimeLock(initDefaultTimeLock);
-
-    // Behind a proxy this instance is only the implementation; make sure nobody can initialize it
-    // directly. Harmless for a direct deployment, which is already configured by this constructor.
     _disableInitializers();
   }
 
-  /**
-   * @notice Configures a proxy's storage. The constructor above configures the implementation, so
-   * a proxy delegating to it starts with empty storage and must be initialized through here.
-   * @dev Granting DEFAULT_ADMIN_ROLE succeeds only while `defaultAdmin()` is still the zero
-   * address, which is true exactly once, on fresh proxy storage. The admin delay stays 0, matching
-   * `ManagementBase(0, initialAdmin)` in the constructor.
-   */
+  /// @dev Initializes the contract state variables.
+  /// @dev `initialAdmin` must be non-zero: unlike the {AccessControlDefaultAdminRules}
+  /// constructor, `_grantRole` does not reject the zero address, so a zero admin would consume the
+  /// initializer and leave the contract without any account able to administer it.
   function initialize(
     address initialAdmin,
     address[] memory initialOperators,
@@ -114,9 +96,7 @@ contract KSDistributor is
     address[] memory initialWhitelistedHooks,
     bytes4[] memory initialWhitelistedSelectors,
     uint256 initDefaultTimeLock
-  ) external initializer {
-    require(initialAdmin != address(0), AccessControlInvalidDefaultAdmin(address(0)));
-
+  ) external initializer checkAddress(initialAdmin) {
     _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
     _batchGrantRole(KSRoles.OPERATOR_ROLE, initialOperators);
     _batchGrantRole(KSRoles.GUARDIAN_ROLE, initialGuardians);

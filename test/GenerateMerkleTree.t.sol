@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import 'src/KSDistributor.sol';
 
 import {ERC721Mock} from './mocks/ERC721Mock.sol';
+import {ProxyUtils} from './utils/ProxyUtils.sol';
 
 import 'forge-std/StdJson.sol';
 import 'forge-std/Test.sol';
@@ -110,21 +111,31 @@ contract GenerateMerkleTreeTest is Test {
     vm.stopPrank();
   }
 
+  /// @dev Deployed from a dedicated address. campaigns-data.json hardcodes token addresses that
+  /// are CREATE addresses of this test contract, and the test etches ERC20 bytecode over them, so
+  /// anything this contract deploys itself risks being clobbered mid-test.
   function _setUpKSDistributor() internal {
+    vm.startPrank(makeAddr('distributorDeployer'));
+
     address[] memory initialOperators = new address[](1);
     initialOperators[0] = operator;
     address[] memory initialGuardians = new address[](1);
     initialGuardians[0] = guardian;
     address[] memory initialRescuers = new address[](1);
     initialRescuers[0] = rescuer;
-    distributor = new KSDistributor(
-      owner,
-      initialOperators,
-      initialGuardians,
-      initialRescuers,
-      new address[](0),
-      new bytes4[](0),
-      1 hours
+    distributor = KSDistributor(
+      ProxyUtils.deployProxy(
+        address(new KSDistributor()),
+        owner,
+        initialOperators,
+        initialGuardians,
+        initialRescuers,
+        new address[](0),
+        new bytes4[](0),
+        1 hours
+      )
     );
+
+    vm.stopPrank();
   }
 }

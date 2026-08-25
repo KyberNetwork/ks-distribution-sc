@@ -31,10 +31,8 @@ contract KSDistributorProxyTest is Test {
   function setUp() public {
     vm.warp(1e18);
 
-    // The implementation is deployed with throwaway config, exactly as the deploy script does.
-    implementation = new KSDistributor(
-      admin, _arr(operator), _arr(guardian), _arr(rescuer), _arr(hook), _sel(), TIME_LOCK
-    );
+    // The implementation takes no constructor args; all config lives in initialize().
+    implementation = new KSDistributor();
 
     bytes memory initData = abi.encodeCall(
       KSDistributor.initialize,
@@ -91,9 +89,7 @@ contract KSDistributorProxyTest is Test {
     bytes32 campaignId =
       distributor.createCampaign(block.timestamp + 1 days, block.timestamp + 30 days, 'eg', 0);
 
-    KSDistributor newImplementation = new KSDistributor(
-      admin, _arr(operator), _arr(guardian), _arr(rescuer), _arr(hook), _sel(), TIME_LOCK
-    );
+    KSDistributor newImplementation = new KSDistributor();
 
     address current =
       address(uint160(uint256(vm.load(address(distributor), ERC1967Utils.IMPLEMENTATION_SLOT))));
@@ -120,9 +116,7 @@ contract KSDistributorProxyTest is Test {
   }
 
   function testOnlyProxyAdminOwnerCanUpgrade() public {
-    KSDistributor newImplementation = new KSDistributor(
-      admin, _arr(operator), _arr(guardian), _arr(rescuer), _arr(hook), _sel(), TIME_LOCK
-    );
+    KSDistributor newImplementation = new KSDistributor();
     address proxyAdmin =
       address(uint160(uint256(vm.load(address(distributor), ERC1967Utils.ADMIN_SLOT))));
 
@@ -135,9 +129,7 @@ contract KSDistributorProxyTest is Test {
   }
 
   function testInitializeRejectsZeroAdmin() public {
-    KSDistributor freshImpl = new KSDistributor(
-      admin, _arr(operator), _arr(guardian), _arr(rescuer), _arr(hook), _sel(), TIME_LOCK
-    );
+    KSDistributor freshImpl = new KSDistributor();
     bytes memory initData = abi.encodeCall(
       KSDistributor.initialize,
       (address(0), _arr(operator), _arr(guardian), _arr(rescuer), _arr(hook), _sel(), TIME_LOCK)
