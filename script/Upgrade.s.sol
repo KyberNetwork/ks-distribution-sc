@@ -4,11 +4,7 @@ pragma solidity ^0.8.0;
 import '../src/KSDistributor.sol';
 import './Base.s.sol';
 
-import {ERC1967Utils} from 'openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol';
-import {ProxyAdmin} from 'openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol';
-import {
-  ITransparentUpgradeableProxy
-} from 'openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol';
+import {UnsafeUpgrades, Upgrades} from 'openzeppelin-foundry-upgrades/Upgrades.sol';
 
 contract UpgradeScript is BaseDistributorScript {
   /// @dev Bump to roll out new logic. Matches DeployScript's release version by default, so a
@@ -38,15 +34,11 @@ contract UpgradeScript is BaseDistributorScript {
       type(KSDistributor).creationCode
     );
 
-    address current =
-      address(uint160(uint256(vm.load(distributor, ERC1967Utils.IMPLEMENTATION_SLOT))));
+    address current = Upgrades.getImplementationAddress(distributor);
 
     if (current != implementation) {
       console.log('upgrade implementation:', current, '->', implementation);
-
-      address proxyAdmin = address(uint160(uint256(vm.load(distributor, ERC1967Utils.ADMIN_SLOT))));
-      ProxyAdmin(proxyAdmin)
-        .upgradeAndCall(ITransparentUpgradeableProxy(distributor), implementation, '');
+      UnsafeUpgrades.upgradeProxy(distributor, implementation, '');
     }
 
     _writeAddress('distributor-impl', implementation);

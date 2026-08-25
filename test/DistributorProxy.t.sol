@@ -12,6 +12,7 @@ import {
   TransparentUpgradeableProxy
 } from 'openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol';
 import {Initializable} from 'openzeppelin-contracts/contracts/proxy/utils/Initializable.sol';
+import {UnsafeUpgrades, Upgrades} from 'openzeppelin-foundry-upgrades/Upgrades.sol';
 
 /// @notice Proves KSDistributor is correctly configured when deployed behind a
 /// TransparentUpgradeableProxy, the way script/Deploy.s.sol deploys it.
@@ -82,8 +83,9 @@ contract KSDistributorProxyTest is Test {
     );
   }
 
-  /// @dev Mirrors UpgradeScript: read the ERC-1967 slots, upgrade through the ProxyAdmin, and
-  /// confirm the proxy keeps its address and storage while the logic changes.
+  /// @dev Mirrors UpgradeScript exactly: read the current implementation with Upgrades, install an
+  /// independently deployed one with UnsafeUpgrades, and confirm the proxy keeps its address and
+  /// storage while the logic changes. tryCaller stands in for the script's --sender.
   function testUpgradePreservesAddressAndStorage() public {
     vm.prank(operator);
     bytes32 campaignId =
@@ -91,21 +93,12 @@ contract KSDistributorProxyTest is Test {
 
     KSDistributor newImplementation = new KSDistributor();
 
-    address current =
-      address(uint160(uint256(vm.load(address(distributor), ERC1967Utils.IMPLEMENTATION_SLOT))));
+    address current = Upgrades.getImplementationAddress(address(distributor));
     assertEq(current, address(implementation), 'implementation slot before');
 
-    address proxyAdmin =
-      address(uint160(uint256(vm.load(address(distributor), ERC1967Utils.ADMIN_SLOT))));
+    UnsafeUpgrades.upgradeProxy(address(distributor), address(newImplementation), '', admin);
 
-    vm.prank(admin);
-    ProxyAdmin(proxyAdmin)
-      .upgradeAndCall(
-        ITransparentUpgradeableProxy(address(distributor)), address(newImplementation), ''
-      );
-
-    address upgraded =
-      address(uint160(uint256(vm.load(address(distributor), ERC1967Utils.IMPLEMENTATION_SLOT))));
+    address upgraded = Upgrades.getImplementationAddress(address(distributor));
     assertEq(upgraded, address(newImplementation), 'implementation slot after');
 
     // Storage and configuration survive the upgrade.

@@ -1,3 +1,6 @@
 [submodule "lib/ks-common-sc"]
 	path = lib/ks-common-sc
 	url = https://github.com/KyberNetwork/ks-common-sc
+[submodule "lib/openzeppelin-foundry-upgrades"]
+	path = lib/openzeppelin-foundry-upgrades
+	url = https://github.com/OpenZeppelin/openzeppelin-foundry-upgrades
