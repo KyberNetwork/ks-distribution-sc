@@ -33,8 +33,9 @@ contract GenerateMerkleTreeTest is Test {
   function testGenerateMerkleTree() public {
     string memory datajson = vm.readFile('script/input/campaigns-data.json');
     for (uint256 i = 0;; i++) {
-      uint256 startTimestamp =
-        datajson.readUintOr(string.concat('.campaignsData[', vm.toString(i), '].startTimestamp'), 0);
+      uint256 startTimestamp = datajson.readUintOr(
+        string.concat('.campaignsData[', vm.toString(i), '].startTimestamp'), 0
+      );
       if (startTimestamp == 0) {
         break;
       }
