@@ -62,6 +62,10 @@ interface IKSDistributor {
   /// @notice Thrown when the pending root effective timestamp is invalid
   error InvalidEffectiveTimestamp();
 
+  /// @notice Thrown when the new startTimestamp is zero, which is reserved to mark a
+  /// non-existent campaign
+  error InvalidStartTimestamp();
+
   /// @notice Thrown when the campaign has not started yet
   error TooEarly();
 
@@ -169,6 +173,8 @@ interface IKSDistributor {
 
   /**
    * @notice Updates startTimestamp of a campaign
+   * @dev Reverts with `InvalidStartTimestamp` if `startTimestamp` is zero, since zero marks a
+   * campaign as non-existent
    * @param campaignId the unique id of the campaign
    * @param startTimestamp the new startTimestamp
    */

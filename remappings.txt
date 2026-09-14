@@ -1,4 +1,4 @@
-forge-std/=lib/ks-common-sc-libs/lib/forge-std/src/
+forge-std/=lib/ks-common-sc/lib/forge-std/src/
 openzeppelin-contracts/=lib/ks-common-sc/lib/openzeppelin-contracts/
 ks-common-sc/=lib/ks-common-sc/
-ks-common-sc-libs/=lib/ks-common-sc-libs/
+openzeppelin-foundry-upgrades/=lib/openzeppelin-foundry-upgrades/src/

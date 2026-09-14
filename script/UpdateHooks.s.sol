@@ -52,9 +52,8 @@ contract UpdateHooks is BaseDistributorScript {
         console.log('Address:', enableHookAddresses[i]);
         console.logBytes4(enableHookFuncSelectors[i]);
       }
-      KSDistributor(distributor).updateWhitelistedHooks(
-        enableHookAddresses, enableHookFuncSelectors, true
-      );
+      KSDistributor(distributor)
+        .updateWhitelistedHooks(enableHookAddresses, enableHookFuncSelectors, true);
     }
 
     if (disableHookAddresses.length != 0) {
@@ -63,9 +62,8 @@ contract UpdateHooks is BaseDistributorScript {
         console.log('Address:', disableHookAddresses[i]);
         console.logBytes4(disableHookFuncSelectors[i]);
       }
-      KSDistributor(distributor).updateWhitelistedHooks(
-        disableHookAddresses, disableHookFuncSelectors, false
-      );
+      KSDistributor(distributor)
+        .updateWhitelistedHooks(disableHookAddresses, disableHookFuncSelectors, false);
     }
 
     vm.stopBroadcast();

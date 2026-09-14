@@ -6,6 +6,7 @@ import 'src/interfaces/IKSZapRouter.sol';
 
 import '../mocks/ERC721Mock.sol';
 import '../utils/MerkleUtils.sol';
+import {ProxyUtils} from '../utils/ProxyUtils.sol';
 
 import 'forge-std/Test.sol';
 
@@ -48,8 +49,17 @@ contract ZapRewardsTest is Test {
     bytes4[] memory selectors = new bytes4[](1);
     selectors[0] = IKSZapRouter.zap.selector;
 
-    distributor = new KSDistributor(
-      owner, initialOperators, initialGuardians, initialRescuers, hooks, selectors, 0
+    distributor = KSDistributor(
+      ProxyUtils.deployProxy(
+        address(new KSDistributor()),
+        owner,
+        initialOperators,
+        initialGuardians,
+        initialRescuers,
+        hooks,
+        selectors,
+        0
+      )
     );
 
     deal(weth, address(distributor), wethAmount);

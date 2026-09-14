@@ -5,6 +5,9 @@ via_ir = true
 ffi = true
 fs_permissions = [{ access = 'read-write', path = './'}]
 
+[lint]
+lint_on_build = false
+
 [fmt]
 line_length = 100
 tab_width = 2
