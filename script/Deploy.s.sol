@@ -9,7 +9,7 @@ import {
 } from 'openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol';
 
 contract DeployScript is BaseDistributorScript {
-  string internal _releaseVersion = '250718_2';
+  string internal _releaseVersion = '250914';
 
   uint256 internal constant DEFAULT_TIME_LOCK = 2 hours;
 
