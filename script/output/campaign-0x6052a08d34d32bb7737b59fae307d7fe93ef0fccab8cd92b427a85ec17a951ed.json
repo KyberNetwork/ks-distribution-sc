@@ -1,0 +1,73 @@
+{
+  "startTimestamp": "1789459200",
+  "endTimestamp": "4918694400",
+  "metadata": "base_eg_sample_260915",
+  "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "userDatas": [
+    {
+      "leaf": {
+        "erc721Addr": "0x7c5f5a4bbd8fd63184577525326123b519429bdc",
+        "erc721Id": "3022296",
+        "tokens": [
+          "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        ],
+        "amounts": [
+          "10000",
+          "10000000000000"
+        ]
+      },
+      "proof": [
+        "0xa2817a512c5c90770d994bfd0983ac1ddb534926d89d562f5b48c65bb480a0ed",
+        "0xd5cbc4a1cd8c8b0312f7a442e52e18dc5125017465b640f7abd3f20d58f6d741"
+      ]
+    },
+    {
+      "leaf": {
+        "erc721Addr": "0x7c5f5a4bbd8fd63184577525326123b519429bdc",
+        "erc721Id": "3025458",
+        "tokens": [
+          "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        ],
+        "amounts": [
+          "20000",
+          "20000000000000"
+        ]
+      },
+      "proof": [
+        "0x182dea3a44b8800a22854befc01bf49516f5e6b37f6fab2d5b9f45cb49537c09",
+        "0xd5cbc4a1cd8c8b0312f7a442e52e18dc5125017465b640f7abd3f20d58f6d741"
+      ]
+    },
+    {
+      "leaf": {
+        "erc721Addr": "0x7c5f5a4bbd8fd63184577525326123b519429bdc",
+        "erc721Id": "2987484",
+        "tokens": [
+          "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        ],
+        "amounts": [
+          "30000",
+          "30000000000000"
+        ]
+      },
+      "proof": [
+        "0xcfab4dee7759f202a662f67d1f790e73c141e98d03f30452c2ad40930909ef78"
+      ]
+    }
+  ],
+  "tree": [
+    "0xf8dba591e0b7c32698b6328caab8a67221ece3f2d352cedd044e58fd752f23b9",
+    "0xcfab4dee7759f202a662f67d1f790e73c141e98d03f30452c2ad40930909ef78",
+    "0xd5cbc4a1cd8c8b0312f7a442e52e18dc5125017465b640f7abd3f20d58f6d741",
+    "0xa2817a512c5c90770d994bfd0983ac1ddb534926d89d562f5b48c65bb480a0ed",
+    "0x182dea3a44b8800a22854befc01bf49516f5e6b37f6fab2d5b9f45cb49537c09"
+  ],
+  "root": "0xf8dba591e0b7c32698b6328caab8a67221ece3f2d352cedd044e58fd752f23b9",
+  "totalAmounts": {
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": "60000",
+    "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": "60000000000000"
+  }
+}

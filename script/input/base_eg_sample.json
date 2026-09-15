@@ -1,0 +1,49 @@
+{
+  "campaignsData": [
+    {
+      "campaignId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "startTimestamp": "1789459200",
+      "endTimestamp": "4918694400",
+      "metadata": "base_eg_sample_260915",
+      "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "leaves": [
+        {
+          "erc721Addr": "0x7c5f5a4bbd8fd63184577525326123b519429bdc",
+          "erc721Id": "3022296",
+          "tokens": [
+            "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          "amounts": [
+            "10000",
+            "10000000000000"
+          ]
+        },
+        {
+          "erc721Addr": "0x7c5f5a4bbd8fd63184577525326123b519429bdc",
+          "erc721Id": "3025458",
+          "tokens": [
+            "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          "amounts": [
+            "20000",
+            "20000000000000"
+          ]
+        },
+        {
+          "erc721Addr": "0x7c5f5a4bbd8fd63184577525326123b519429bdc",
+          "erc721Id": "2987484",
+          "tokens": [
+            "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          ],
+          "amounts": [
+            "30000",
+            "30000000000000"
+          ]
+        }
+      ]
+    }
+  ]
+}
