@@ -104,6 +104,7 @@ contract BaseDistributorScript is BaseScript {
   /// into the next chain's constructor args.
   function _readEnabledHooks()
     internal
+    view
     returns (address[] memory addresses, bytes4[] memory funcSelectors)
   {
     (
@@ -165,7 +166,8 @@ contract BaseDistributorScript is BaseScript {
     )
   {
     string memory json = _getJsonString(key);
-    bytes memory data = json.parseRaw(string.concat('.', vm.toString(vm.getChainId())));
+    string memory chainKey = _toDotChainId(vm.getChainId());
+    bytes memory data = json.parseRaw(json.keyExists(chainKey) ? chainKey : '.0');
     Hook[] memory hooks = abi.decode(data, (Hook[]));
 
     addresses = new address[](hooks.length);
